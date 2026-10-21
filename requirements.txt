@@ -1,0 +1,7 @@
+playwright==1.42.0
+MetaTrader5==5.0.45
+requests==2.31.0
+pytest==8.0.2
+python-dotenv==1.2.3
+fastapi>=0.110.0
+uvicorn>=0.28.0

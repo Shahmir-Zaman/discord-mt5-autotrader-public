@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AutoTrader Connector</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      width: 320px;
+      background-color: #0f172a;
+      color: #f1f5f9;
+      padding: 14px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .header-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #38bdf8;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+    }
+    .status-connected {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-disconnected {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .status-partial {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .dot-green { background-color: #10b981; }
+    .dot-red { background-color: #ef4444; }
+    .dot-amber { background-color: #f59e0b; }
+
+    .card {
+      background-color: #1e293b;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #334155;
+    }
+    .label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .value {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e2e8f0;
+      word-break: break-all;
+    }
+    .form-group {
+      margin-top: 6px;
+    }
+    input[type="text"] {
+      width: 100%;
+      background-color: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      color: #f8fafc;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #38bdf8;
+    }
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .btn {
+      background-color: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn:hover {
+      background-color: #0369a1;
+    }
+    .btn-secondary {
+      background-color: #334155;
+      color: #f1f5f9;
+      padding: 4px 8px;
+      font-size: 10px;
+      margin-top: 4px;
+      border-radius: 4px;
+      border: 1px solid #475569;
+      cursor: pointer;
+      width: auto;
+    }
+    .btn-secondary:hover {
+      background-color: #475569;
+    }
+
+    .port-pills-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .port-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background-color: #0f172a;
+      border: 1px solid #334155;
+    }
+    .port-pill.online {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .port-pill.offline {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .log-list {
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    .log-item {
+      padding: 6px 0;
+      border-bottom: 1px solid #334155;
+    }
+    .log-item:last-child {
+      border-bottom: none;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+    .log-text {
+      color: #cbd5e1;
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-status {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .status-executed { background: #065f46; color: #6ee7b7; }
+    .status-filtered { background: #78350f; color: #fde68a; }
+    .status-unknown { background: #334155; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-title">
+      <span>⚡ AutoTrader Relay</span>
+    </div>
+    <div id="statusBadge" class="status-badge status-disconnected">
+      <span id="statusDot" class="dot dot-red"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+      <span class="label">Target Ports / URLs</span>
+      <span style="font-size: 10px; color: #64748b;">e.g. 8000, 8001</span>
+    </div>
+    <div class="form-group">
+      <input type="text" id="serverUrls" value="8000, 8001" placeholder="8000, 8001">
+    </div>
+    <div id="portStatusList" class="port-pills-container">
+      <!-- Generated dynamically -->
+    </div>
+    <div class="switch-row" style="margin-top: 10px;">
+      <span class="label" style="margin-bottom: 0;">Relay Enabled</span>
+      <input type="checkbox" id="enabledToggle" checked>
+    </div>
+    <button id="saveBtn" class="btn">Save & Reconnect</button>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <span class="label" style="margin-bottom: 0;">Active Discord Tab</span>
+      <span id="activeChannel" class="value" style="color: #38bdf8;">None</span>
+    </div>
+    <div id="discordNotice" style="margin-top: 6px; font-size: 10px; color: #94a3b8; display: none;">
+      <span>Tab needs reload: </span>
+      <button id="reloadDiscordBtn" class="btn-secondary">🔄 Refresh Discord Tab</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 0;">
+    <span class="label">Recent Relayed Signals</span>
+    <div id="logsContainer" class="log-list">
+      <div style="color: #64748b; font-style: italic; padding: 8px 0; text-align: center;">No signals captured yet</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

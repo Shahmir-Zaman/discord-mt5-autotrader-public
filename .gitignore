@@ -1,0 +1,38 @@
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+config*.json
+!config.example.json
+*.pem
+*.key
+*.p12
+*.pfx
+# Private operational data
+*history*.csv
+*history*.json
+*journal*.csv
+*journal*.json
+*.log
+logs/
+data/
+*.db
+*.sqlite*
+CHAT_SUMMARY.md
+# Python and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+# Tool and build output
+node_modules/
+dist/
+build/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

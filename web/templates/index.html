@@ -1,0 +1,2379 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord-MT5 AutoTrader Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            darkBg: '#09090b',       /* shadcn zinc-950 */
+            cardBg: '#121215',       /* shadcn zinc-900 elevated */
+            cardBorder: '#27272a'    /* shadcn zinc-800 */
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Shadcn minimal scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+  </style>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen font-sans antialiased flex flex-col selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="border-b border-cardBorder bg-cardBg/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <i data-lucide="zap" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">AutoTrader</h1>
+            <span id="instanceBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Port ...</span>
+          </div>
+          <p class="text-xs text-slate-400">Discord to MetaTrader 5 Bridge</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 sm:space-x-4">
+        <!-- Target MT5 Terminal Selector -->
+        <div class="flex items-center bg-darkBg border border-cardBorder rounded-xl p-1 text-xs" title="Select which MT5 terminal this bot instance targets">
+          <span class="text-slate-400 px-2 flex items-center gap-1 font-medium text-[11px]">
+            <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span class="hidden md:inline">Target MT5:</span>
+          </span>
+          <select id="targetTerminalSelect" onchange="setTargetTerminal(this.value)" class="bg-cardBg border border-cardBorder text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-500 font-medium cursor-pointer">
+            <option value="auto">Auto-Route (By Channel)</option>
+            <option value="terminal_1">Terminal 1 (provider_a - #100001)</option>
+            <option value="terminal_2">Terminal 2 (provider_b - #100002)</option>
+            <option value="terminal_3">Terminal 3 (terminal_owner - #100003)</option>
+          </select>
+        </div>
+
+        <!-- Active Trader Selector -->
+        <div class="flex items-center bg-darkBg border border-cardBorder rounded-xl p-1 text-xs" title="Select which trader and MT5 account the bot executes for">
+          <button id="traderprovider_aBtn" onclick="setActiveTrader('provider_a')" class="px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+            <span>provider_a</span>
+          </button>
+          <button id="traderprovider_bBtn" onclick="setActiveTrader('provider_b')" class="px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <span>provider_b</span>
+          </button>
+          <button id="traderprovider_cBtn" onclick="setActiveTrader('provider_c')" class="px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>provider_c</span>
+          </button>
+          <button id="traderprovider_dBtn" onclick="setActiveTrader('provider_d')" class="px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>provider_d</span>
+          </button>
+          <button id="traderAllBtn" onclick="setActiveTrader('all')" class="px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 bg-brand-600 text-white cursor-pointer shadow-sm">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span>All</span>
+          </button>
+        </div>
+
+        <!-- Trigger Mode Switch -->
+        <div class="hidden sm:flex items-center bg-darkBg border border-cardBorder rounded-xl p-1 text-xs">
+          <button id="modePollingBtn" onclick="setTriggerMode('polling')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 bg-brand-600 text-white cursor-pointer shadow-sm">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Auto-Detect (Test Mode)</span>
+          </button>
+          <button id="modeNtfyBtn" onclick="setTriggerMode('ntfy')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+            <span>ntfy Stream (Prod)</span>
+          </button>
+        </div>
+
+        <!-- Bot Status Badge -->
+        <div id="botStatusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span>CHECKING...</span>
+        </div>
+
+        <!-- Start/Stop Control Button -->
+        <button id="toggleBotBtn" onclick="toggleBot()" class="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer">
+          <i data-lucide="play" class="w-4 h-4"></i>
+          <span id="toggleBotBtnText">Start Bot</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- TESTING MODE BANNER -->
+    <div id="pollingBanner" class="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-800/40 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 flex-shrink-0">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h2 class="text-xs font-bold text-indigo-200 uppercase tracking-wide">Testing Mode Active: Auto-Detect Browser Messages</h2>
+          <p class="text-xs text-slate-300">Whenever you or anyone types a message into your Discord tabs, the bot executes the trade immediately. No ntfy/Tasker required!</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <button onclick="triggerMockScrape('channel-a')" class="flex-1 sm:flex-none px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded-lg text-xs font-semibold transition cursor-pointer">
+          ⚡ Scrape #channel-a Now
+        </button>
+        <button onclick="triggerMockScrape('channel-b')" class="flex-1 sm:flex-none px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700/60 rounded-lg text-xs font-semibold transition cursor-pointer">
+          ⚡ Scrape #channel-b Now
+        </button>
+        <button onclick="triggerMockScrape('channel-c')" class="flex-1 sm:flex-none px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/60 rounded-lg text-xs font-semibold transition cursor-pointer">
+          ⚡ Scrape #channel-c Now
+        </button>
+        <button onclick="triggerMockScrape('provider_d')" class="flex-1 sm:flex-none px-3 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded-lg text-xs font-semibold transition cursor-pointer">
+          ⚡ Scrape #🦅-provider_d Now
+        </button>
+      </div>
+    </div>
+
+    <!-- METRICS GRID (4 CARDS) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Card 1: MT5 Terminal 1 (provider_a) -->
+      <div id="cardprovider_a" class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all duration-200">
+        <div>
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5"></i> provider_a MT5 (#1)
+            </span>
+            <div id="provider_aIndicator" class="flex items-center text-xs space-x-1.5 text-slate-400">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+          <div id="provider_aLoginDisplay" class="text-lg font-bold text-white mb-0.5">--</div>
+          <div id="provider_aServerDisplay" class="text-[11px] text-slate-400 truncate">Exness-MT5Trial16</div>
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-cardBorder/60 text-xs">
+            <span class="text-slate-400">Equity: <span id="provider_aEquityDisplay" class="font-semibold text-slate-200">$0.00</span></span>
+            <span class="text-slate-400">Bal: <span id="provider_aBalanceDisplay" class="font-semibold text-slate-300">$0.00</span></span>
+          </div>
+        </div>
+        <div class="mt-3 pt-2">
+          <button id="btnLaunchprovider_a" onclick="launchTerminal('provider_a')" class="w-full py-1.5 px-3 bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-800/60 text-indigo-300 rounded-lg text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="play" class="w-3 h-3"></i>
+            <span id="btnLaunchprovider_aText">Launch MT5 (provider_a)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: MT5 Terminal 2 (provider_b) -->
+      <div id="cardprovider_b" class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all duration-200">
+        <div>
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5"></i> provider_b & provider_c MT5 (#2)
+            </span>
+            <div id="provider_bIndicator" class="flex items-center text-xs space-x-1.5 text-slate-400">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+          <div id="provider_bLoginDisplay" class="text-lg font-bold text-white mb-0.5">--</div>
+          <div id="provider_bServerDisplay" class="text-[11px] text-slate-400 truncate">Exness-MT5Trial15</div>
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-cardBorder/60 text-xs">
+            <span class="text-slate-400">Equity: <span id="provider_bEquityDisplay" class="font-semibold text-slate-200">$0.00</span></span>
+            <span class="text-slate-400">Bal: <span id="provider_bBalanceDisplay" class="font-semibold text-slate-300">$0.00</span></span>
+          </div>
+        </div>
+        <div class="mt-3 pt-2">
+          <button id="btnLaunchprovider_b" onclick="launchTerminal('provider_b')" class="w-full py-1.5 px-3 bg-purple-950/60 hover:bg-purple-900 border border-purple-800/60 text-purple-300 rounded-lg text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="play" class="w-3 h-3"></i>
+            <span id="btnLaunchprovider_bText">Launch MT5 (provider_b)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: MT5 Terminal 3 (terminal_owner) -->
+      <div id="cardterminal_owner" class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all duration-200">
+        <div>
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5"></i> terminal_owner MT5 (#3)
+            </span>
+            <div id="terminal_ownerIndicator" class="flex items-center text-xs space-x-1.5 text-slate-400">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+          <div id="terminal_ownerLoginDisplay" class="text-lg font-bold text-white mb-0.5">--</div>
+          <div id="terminal_ownerServerDisplay" class="text-[11px] text-slate-400 truncate">Exness-MT5Real51</div>
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-cardBorder/60 text-xs">
+            <span class="text-slate-400">Equity: <span id="terminal_ownerEquityDisplay" class="font-semibold text-slate-200">$0.00</span></span>
+            <span class="text-slate-400">Bal: <span id="terminal_ownerBalanceDisplay" class="font-semibold text-slate-300">$0.00</span></span>
+          </div>
+        </div>
+        <div class="mt-3 pt-2">
+          <button id="btnLaunchterminal_owner" onclick="launchTerminal('terminal_owner')" class="w-full py-1.5 px-3 bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800/60 text-cyan-300 rounded-lg text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="play" class="w-3 h-3"></i>
+            <span id="btnLaunchterminal_ownerText">Launch MT5 (terminal_owner)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Combined Floating P&L & Total Equity -->
+      <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Combined Floating P&L</span>
+            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div id="floatingPnlDisplay" class="text-xl font-bold text-slate-300 mb-1">$0.00</div>
+          <div id="openCountDisplay" class="text-xs text-slate-400">0 active positions</div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-cardBorder/60 flex items-center justify-between text-xs text-slate-400">
+          <span>Total Equity:</span>
+          <span id="totalEquityDisplay" class="font-bold text-white">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Quick Launch Both & CDP -->
+      <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Browser & Terminals</span>
+            <div id="cdpIndicator" class="flex items-center text-xs space-x-1.5 text-slate-400">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Port 9222</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 my-1.5">
+            <span class="px-2 py-0.5 text-xs rounded-md bg-indigo-950/70 border border-indigo-800/60 text-indigo-300 font-medium">#channel-a</span>
+            <span class="px-2 py-0.5 text-xs rounded-md bg-purple-950/70 border border-purple-800/60 text-purple-300 font-medium">#channel-b</span>
+            <span class="px-2 py-0.5 text-xs rounded-md bg-emerald-950/70 border border-emerald-800/60 text-emerald-300 font-medium">#channel-c</span>
+          </div>
+          <div id="cdpTabsInfo" class="text-xs text-slate-400 truncate">Checking Chrome connection...</div>
+          <div class="mt-2.5 pt-2 border-t border-cardBorder/60 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-1.5">
+              <span id="extStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span id="extStatusText" class="text-slate-400">Extension Offline</span>
+            </div>
+            <button onclick="openExtensionGuideModal()" class="text-[11px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer">Guide</button>
+          </div>
+        </div>
+        <div class="mt-3 pt-2">
+          <button id="btnLaunchBoth" onclick="launchTerminal('all')" class="w-full py-1.5 px-3 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+            <span>Launch Both MT5s</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAIN TWO-COLUMN DASHBOARD -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- LEFT COLUMN (7 Cols): Open Positions & Activity Stream -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- OPEN POSITIONS TABLE -->
+        <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="layers" class="w-5 h-5 text-brand-500"></i>
+              <h2 class="text-base font-semibold text-white">Live MT5 Positions</h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnReconcileTrades" onclick="reconcileTrades()" title="Scan MT5 and match open manual trades with recent Discord signals" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span id="btnReconcileText">Reconcile / Adopt</span>
+              </button>
+              <span id="positionBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-medium">0 Open</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[11px] border-b border-cardBorder">
+                <tr>
+                  <th class="py-2 px-3">Ticket</th>
+                  <th class="py-2 px-3">Account</th>
+                  <th class="py-2 px-3">Symbol</th>
+                  <th class="py-2 px-3">Type</th>
+                  <th class="py-2 px-3">Size</th>
+                  <th class="py-2 px-3">Entry</th>
+                  <th class="py-2 px-3">Current</th>
+                  <th class="py-2 px-3">SL / TP</th>
+                  <th class="py-2 px-3">Profit</th>
+                  <th class="py-2 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="positionsTableBody" class="divide-y divide-cardBorder/60">
+                <tr>
+                  <td colspan="10" class="py-6 text-center text-slate-500 italic">No open positions found.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ARMED BREAKEVEN PRICE WATCHERS -->
+          <div id="activeTriggersCard" class="hidden mt-4 pt-3 border-t border-cardBorder">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-2 text-cyan-400 font-medium text-xs">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5 text-cyan-400 animate-pulse"></i>
+                <span>Armed Breakeven Price Watchers</span>
+              </div>
+              <span id="activeTriggersCount" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">0 Active</span>
+            </div>
+            <div id="activeTriggersList" class="space-y-1.5 text-xs">
+              <!-- Populated by fetchStatus() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- REAL-TIME LOG / SIGNAL STREAM -->
+        <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm flex flex-col h-[400px]">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-emerald-400"></i>
+              <h2 class="text-base font-semibold text-white">Live Activity & Signal Stream</h2>
+            </div>
+            <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-slate-200 transition">Clear</button>
+          </div>
+
+          <!-- Log Box -->
+          <div id="terminalFeed" class="flex-1 bg-darkBg border border-cardBorder/80 rounded-xl p-3.5 font-mono text-xs overflow-y-auto space-y-1.5">
+            <div class="text-slate-500 italic">Connecting to live feed...</div>
+          </div>
+        </div>
+
+        <!-- TRADING JOURNAL & EVENTS CARD (SHADCN TABS DESIGN) -->
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-sm mt-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <!-- Shadcn TabsList -->
+            <div class="inline-flex items-center p-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs">
+              <button id="tabBtnJournal" onclick="switchJournalTab('journal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition bg-zinc-800 text-zinc-100 shadow-sm cursor-pointer">
+                <i data-lucide="book-open" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span>Trading Journal</span>
+                <span id="journalCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full bg-zinc-700/60 text-zinc-300 text-[10px]">0</span>
+              </button>
+              <button id="tabBtnEvents" onclick="switchJournalTab('events')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 cursor-pointer">
+                <i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Raw Events Stream</span>
+                <span id="eventsCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400 text-[10px]">0</span>
+              </button>
+            </div>
+
+            <!-- Action: Clear Journal Button (Shadcn outline/destructive) -->
+            <div class="flex items-center gap-2">
+              <button onclick="openClearModal()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-red-400 hover:border-red-900/50 hover:bg-red-950/20 transition cursor-pointer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Clear Journal</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT 1: TRADING JOURNAL -->
+          <div id="tabContentJournal" class="overflow-x-auto max-h-[360px] overflow-y-auto">
+            <table class="w-full text-left text-xs text-zinc-300">
+              <thead class="bg-zinc-900/90 text-zinc-400 uppercase tracking-wider text-[11px] border-b border-zinc-800 sticky top-0 z-10 backdrop-blur-sm">
+                <tr>
+                  <th class="py-2.5 px-3 w-6"></th>
+                  <th class="py-2.5 px-3">#</th>
+                  <th class="py-2.5 px-3">Symbol</th>
+                  <th class="py-2.5 px-3">Signal</th>
+                  <th class="py-2.5 px-3">Lot</th>
+                  <th class="py-2.5 px-3">Entry</th>
+                  <th class="py-2.5 px-3">TP</th>
+                  <th class="py-2.5 px-3">SL</th>
+                  <th class="py-2.5 px-3">PnL</th>
+                  <th class="py-2.5 px-3">Status</th>
+                </tr>
+              </thead>
+              <tbody id="journalTableBody" class="divide-y divide-zinc-800/60">
+                <tr>
+                  <td colspan="10" class="py-6 text-center text-zinc-500 italic">No trades recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- TAB CONTENT 2: RAW EVENTS STREAM -->
+          <div id="tabContentEvents" class="hidden overflow-x-auto max-h-[360px] overflow-y-auto">
+            <table class="w-full text-left text-xs text-zinc-300">
+              <thead class="bg-zinc-900/90 text-zinc-400 uppercase tracking-wider text-[11px] border-b border-zinc-800 sticky top-0 z-10 backdrop-blur-sm">
+                <tr>
+                  <th class="py-2.5 px-3">Time</th>
+                  <th class="py-2.5 px-3">Provider</th>
+                  <th class="py-2.5 px-3">Event</th>
+                  <th class="py-2.5 px-3">Symbol</th>
+                  <th class="py-2.5 px-3">Action</th>
+                  <th class="py-2.5 px-3">Price</th>
+                  <th class="py-2.5 px-3">Size</th>
+                  <th class="py-2.5 px-3">Profit</th>
+                  <th class="py-2.5 px-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="eventsTableBody" class="divide-y divide-zinc-800/60">
+                <tr>
+                  <td colspan="9" class="py-6 text-center text-zinc-500 italic">No raw events recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN (5 Cols): Simulator & Settings -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- SIGNAL SIMULATOR / SANDBOX -->
+        <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center space-x-2 mb-3">
+            <i data-lucide="play-circle" class="w-5 h-5 text-indigo-400"></i>
+            <h2 class="text-base font-semibold text-white">Signal Simulator & Sandbox</h2>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">Test parse custom Discord messages or execute them directly on MT5 without waiting for real alerts.</p>
+
+          <!-- Quick Presets -->
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <button onclick="setSampleSignal(1)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] rounded text-slate-300 transition cursor-pointer">provider_b Market</button>
+            <button onclick="setSampleSignal(2)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] rounded text-slate-300 transition cursor-pointer">provider_a Market</button>
+            <button onclick="setSampleSignal(3)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] rounded text-slate-300 transition cursor-pointer">Move SL Breakeven</button>
+            <button onclick="setSampleSignal(4)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] rounded text-slate-300 transition cursor-pointer">Trade Closed (provider_a)</button>
+            <button onclick="setSampleSignal(7)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[11px] rounded text-slate-300 transition cursor-pointer">Take TP</button>
+            <button onclick="setSampleSignal(5)" class="px-2 py-1 bg-blue-900/60 border border-blue-700/50 hover:bg-blue-800 text-[11px] rounded text-blue-200 transition cursor-pointer">Dual Limit (provider_b)</button>
+            <button onclick="setSampleSignal(6)" class="px-2 py-1 bg-blue-900/60 border border-blue-700/50 hover:bg-blue-800 text-[11px] rounded text-blue-200 transition cursor-pointer">Cancel Pending</button>
+            <button onclick="setSampleSignal(8)" class="px-2 py-1 bg-emerald-900/60 border border-emerald-700/50 hover:bg-emerald-800 text-[11px] rounded text-emerald-200 transition cursor-pointer">provider_c Market</button>
+            <button onclick="setSampleSignal(9)" class="px-2 py-1 bg-amber-900/60 border border-amber-700/50 hover:bg-amber-800 text-[11px] rounded text-amber-200 transition cursor-pointer">Shift SL</button>
+            <button onclick="setSampleSignal(10)" class="px-2 py-1 bg-teal-900/60 border border-teal-700/50 hover:bg-teal-800 text-[11px] rounded text-teal-200 transition cursor-pointer">Shift TP</button>
+            <button onclick="setSampleSignal(11)" class="px-2 py-1 bg-indigo-900/60 border border-indigo-700/50 hover:bg-indigo-800 text-[11px] rounded text-indigo-200 transition cursor-pointer">Breakeven Trigger</button>
+            <button onclick="setSampleSignal(12)" class="px-2 py-1 bg-amber-900/60 border border-amber-700/50 hover:bg-amber-800 text-[11px] rounded text-amber-200 transition cursor-pointer">provider_d Buy CMP</button>
+            <button onclick="setSampleSignal(13)" class="px-2 py-1 bg-amber-900/60 border border-amber-700/50 hover:bg-amber-800 text-[11px] rounded text-amber-200 transition cursor-pointer">provider_d SL BE Fast</button>
+            <button onclick="setSampleSignal(14)" class="px-2 py-1 bg-amber-900/60 border border-amber-700/50 hover:bg-amber-800 text-[11px] rounded text-amber-200 transition cursor-pointer">provider_d Loss Exit</button>
+          </div>
+
+          <!-- Target Channel & Account Selector -->
+          <div class="mb-3 flex items-center justify-between gap-2 bg-darkBg/60 border border-cardBorder/80 rounded-xl px-3 py-2">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i> Target Account:
+            </span>
+            <select id="simChannel" class="bg-cardBg border border-cardBorder rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+              <option value="channel-a">provider_a (#channel-a &rarr; Terminal 1)</option>
+              <option value="channel-b">provider_b (#channel-b &rarr; Terminal 2)</option>
+              <option value="channel-c">provider_c (#channel-c &rarr; Terminal 2 / provider_b)</option>
+              <option value="provider_d">provider_d (#🦅-provider_d &rarr; Configured Terminal)</option>
+            </select>
+          </div>
+
+          <textarea id="simulateText" rows="3" class="w-full bg-darkBg border border-cardBorder rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="Paste Discord message text here..."></textarea>
+
+          <div class="flex items-center space-x-3 mt-3">
+            <button onclick="runSimulation(false)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-xs font-medium transition cursor-pointer">
+              Parse Only
+            </button>
+            <button onclick="runSimulation(true)" class="flex-1 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium transition cursor-pointer">
+              Parse & Execute (MT5)
+            </button>
+          </div>
+
+          <!-- Simulation Output Card -->
+          <div id="simResultBox" class="mt-3 hidden bg-darkBg/90 border border-cardBorder rounded-xl p-3 text-xs">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-bold text-slate-300 text-[11px] uppercase">Parser Result</span>
+              <span id="simResultType" class="px-2 py-0.5 rounded text-[10px] font-bold"></span>
+            </div>
+            <pre id="simResultJson" class="text-slate-300 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap"></pre>
+            <div id="simExecResult" class="mt-2 pt-2 border-t border-cardBorder/60 text-xs font-medium text-emerald-400"></div>
+          </div>
+        </div>
+
+        <!-- SETTINGS & CONFIGURATION MANAGER -->
+        <div class="bg-cardBg border border-cardBorder rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="sliders" class="w-5 h-5 text-amber-400"></i>
+              <h2 class="text-base font-semibold text-white">Bot Configuration</h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="testTelegramAlert()" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer">
+                Test Telegram
+              </button>
+              <button onclick="testTelegramErrorAlert()" class="text-xs px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition cursor-pointer" title="Send a test 🚨 error alert to Telegram">
+                Test Error Alert
+              </button>
+            </div>
+          </div>
+
+          <!-- TOP NAVIGATION TABS -->
+          <div class="flex items-center gap-1.5 p-1 bg-darkBg border border-cardBorder rounded-xl mb-4 text-xs font-medium">
+            <button type="button" id="cfgTabChannelsBtn" onclick="switchConfigTab('channels')" class="flex-1 py-1.5 px-3 rounded-lg text-white bg-brand-600 shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="radio" class="w-3.5 h-3.5"></i>
+              <span>Channels & Sizing</span>
+            </button>
+            <button type="button" id="cfgTabTerminalsBtn" onclick="switchConfigTab('terminals')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>
+              <span>Terminals & MT5</span>
+            </button>
+            <button type="button" id="cfgTabAlertsBtn" onclick="switchConfigTab('alerts')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+              <span>Alerts / Ntfy</span>
+            </button>
+          </div>
+
+          <form id="configForm" onsubmit="event.preventDefault(); saveConfiguration(event); return false;" class="space-y-4">
+
+            <!-- TAB 1: CHANNELS & LOT SIZING -->
+            <div id="cfgTabPanelChannels" class="space-y-3">
+              <!-- Channel Selector Pills -->
+              <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <button type="button" id="cfgChanprovider_dBtn" onclick="switchConfigChannel('provider_d')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer flex-shrink-0">
+                  <span>🦅 provider_d</span>
+                </button>
+                <button type="button" id="cfgChanprovider_aBtn" onclick="switchConfigChannel('provider_a')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer flex-shrink-0">
+                  <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  <span>provider_a</span>
+                </button>
+                <button type="button" id="cfgChanprovider_bBtn" onclick="switchConfigChannel('provider_b')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer flex-shrink-0">
+                  <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                  <span>provider_b</span>
+                </button>
+                <button type="button" id="cfgChanprovider_cBtn" onclick="switchConfigChannel('provider_c')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer flex-shrink-0">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span>provider_c</span>
+                </button>
+                <button type="button" id="cfgChanterminal_ownerBtn" onclick="switchConfigChannel('terminal_owner')" class="px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer flex-shrink-0">
+                  <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  <span>terminal_owner</span>
+                </button>
+              </div>
+
+              <!-- PROVIDER_D CHANNEL CARD -->
+              <div id="cfgChanprovider_dBox" class="bg-darkBg/60 border border-amber-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <div>
+                      <h4 class="text-xs font-bold text-white uppercase tracking-wider">provider_d Channel</h4>
+                      <p class="text-[10px] text-slate-400">Discord: <span class="text-amber-300 font-mono font-medium">#🦅-provider_d</span> (provider_d_alias FX / Chrome CDP)</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">provider_d_alias FX</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Target MT5 Terminal</label>
+                    <select id="cfgprovider_dTargetTerminal" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                      <option value="terminal_1">Terminal 1 (provider_a)</option>
+                      <option value="terminal_2">Terminal 2 (provider_b)</option>
+                      <option value="terminal_3">Terminal 3 (terminal_owner)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Lot Sizing Mode</label>
+                    <select id="cfgprovider_dLotMode" onchange="updateLotModeVisibility('provider_d')" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                      <option value="MILESTONE">Milestone (Compounding)</option>
+                      <option value="RISK">Risk %</option>
+                      <option value="FIXED">Fixed Lot</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div id="cfgprovider_dStartingMilestoneWrapper">
+                    <label class="block text-[10px] font-semibold text-amber-300 uppercase tracking-wider mb-1">Milestone ($)</label>
+                    <input type="number" step="1" id="cfgprovider_dStartingMilestone" class="w-full bg-cardBg border border-amber-500/40 rounded-lg p-2 text-xs text-amber-300 focus:outline-none focus:border-amber-400 font-mono font-bold" placeholder="100.0">
+                  </div>
+                  <div id="cfgprovider_dRiskPctWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Risk %</label>
+                    <input type="number" step="0.01" id="cfgprovider_dRiskPct" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="1.0">
+                  </div>
+                  <div id="cfgprovider_dFixedLotWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Fixed Lot</label>
+                    <input type="number" step="0.01" id="cfgprovider_dFixedLot" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="0.01">
+                  </div>
+                </div>
+
+                <div id="cfgprovider_dModeNote" class="text-[11px] p-2.5 rounded-lg bg-cardBg border border-cardBorder text-slate-300 leading-relaxed"></div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">provider_d Broker Suffix (e.g. 'm' for XAUUSDm, or blank)</label>
+                  <input type="text" id="cfgprovider_dSymbolSuffix" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="m">
+                </div>
+              </div>
+
+              <!-- PROVIDER_A CHANNEL CARD -->
+              <div id="cfgChanprovider_aBox" class="hidden bg-darkBg/60 border border-indigo-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                    <div>
+                      <h4 class="text-xs font-bold text-white uppercase tracking-wider">provider_a Signals</h4>
+                      <p class="text-[10px] text-slate-400">Routes to <span class="text-indigo-300 font-medium">Terminal 1 (#100001)</span> &bull; <span class="font-mono text-slate-300">#channel-a</span></p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Terminal 1</span>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Lot Sizing Mode</label>
+                  <select id="cfgprovider_aLotMode" onchange="updateLotModeVisibility('provider_a')" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                    <option value="FIXED">Fixed Lot</option>
+                    <option value="RISK">Risk %</option>
+                    <option value="MILESTONE">Milestone (Compounding)</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div id="cfgprovider_aFixedLotWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Fixed Lot</label>
+                    <input type="number" step="0.01" id="cfgprovider_aFixedLot" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                  <div id="cfgprovider_aRiskPctWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Risk %</label>
+                    <input type="number" step="0.01" id="cfgprovider_aRiskPct" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                </div>
+
+                <div id="cfgprovider_aModeNote" class="text-[11px] p-2.5 rounded-lg bg-cardBg border border-cardBorder text-slate-300 leading-relaxed"></div>
+              </div>
+
+              <!-- PROVIDER_B CHANNEL CARD -->
+              <div id="cfgChanprovider_bBox" class="hidden bg-darkBg/60 border border-purple-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                    <div>
+                      <h4 class="text-xs font-bold text-white uppercase tracking-wider">provider_b Signals</h4>
+                      <p class="text-[10px] text-slate-400">Routes to <span class="text-purple-300 font-medium">Terminal 2 (#100002)</span> &bull; <span class="font-mono text-slate-300">#channel-b</span></p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">Terminal 2</span>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Lot Sizing Mode</label>
+                  <select id="cfgprovider_bLotMode" onchange="updateLotModeVisibility('provider_b')" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                    <option value="FIXED">Fixed Lot</option>
+                    <option value="RISK">Risk %</option>
+                    <option value="MILESTONE">Milestone (Compounding)</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div id="cfgprovider_bFixedLotWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Fixed Lot</label>
+                    <input type="number" step="0.01" id="cfgprovider_bFixedLot" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                  <div id="cfgprovider_bRiskPctWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Risk %</label>
+                    <input type="number" step="0.01" id="cfgprovider_bRiskPct" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Dual Entry Limit Split (provider_b)</label>
+                  <select id="cfgprovider_bDualSplit" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                    <option value="75/25">75% Entry 1 / 25% Entry 2 (Recommended)</option>
+                    <option value="50/50">50% Entry 1 / 50% Entry 2</option>
+                    <option value="60/40">60% Entry 1 / 40% Entry 2</option>
+                  </select>
+                </div>
+
+                <div id="cfgprovider_bModeNote" class="text-[11px] p-2.5 rounded-lg bg-cardBg border border-cardBorder text-slate-300 leading-relaxed"></div>
+              </div>
+
+              <!-- PROVIDER_C CHANNEL CARD -->
+              <div id="cfgChanprovider_cBox" class="hidden bg-darkBg/60 border border-emerald-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <div>
+                      <h4 class="text-xs font-bold text-white uppercase tracking-wider">provider_c Signals</h4>
+                      <p class="text-[10px] text-slate-400">Routes to <span class="text-emerald-300 font-medium">Terminal 2</span> &bull; <span class="font-mono text-slate-300">#channel-c</span></p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Terminal 2</span>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Lot Sizing Mode</label>
+                  <select id="cfgprovider_cLotMode" onchange="updateLotModeVisibility('provider_c')" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                    <option value="FIXED">Fixed Lot</option>
+                    <option value="RISK">Risk %</option>
+                    <option value="MILESTONE">Milestone (Compounding)</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div id="cfgprovider_cFixedLotWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Fixed Lot</label>
+                    <input type="number" step="0.01" id="cfgprovider_cFixedLot" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                  <div id="cfgprovider_cRiskPctWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Risk %</label>
+                    <input type="number" step="0.01" id="cfgprovider_cRiskPct" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+                  </div>
+                </div>
+
+                <div id="cfgprovider_cModeNote" class="text-[11px] p-2.5 rounded-lg bg-cardBg border border-cardBorder text-slate-300 leading-relaxed"></div>
+              </div>
+
+              <!-- TERMINAL_OWNER CHANNEL CARD -->
+              <div id="cfgChanterminal_ownerBox" class="hidden bg-darkBg/60 border border-cyan-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <div>
+                      <h4 class="text-xs font-bold text-white uppercase tracking-wider">terminal_owner Signals / Terminal 3</h4>
+                      <p class="text-[10px] text-slate-400">Routes to <span class="text-cyan-300 font-medium">Terminal 3 (#100003)</span></p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium">Terminal 3</span>
+                </div>
+
+                <div>
+                  <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Lot Sizing Mode</label>
+                  <select id="cfgterminal_ownerLotMode" onchange="updateLotModeVisibility('terminal_owner')" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                    <option value="RISK">Risk %</option>
+                    <option value="FIXED">Fixed Lot</option>
+                    <option value="MILESTONE">Milestone (Compounding)</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div id="cfgterminal_ownerFixedLotWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Fixed Lot</label>
+                    <input type="number" step="0.01" id="cfgterminal_ownerFixedLot" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="0.01">
+                  </div>
+                  <div id="cfgterminal_ownerRiskPctWrapper">
+                    <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Risk %</label>
+                    <input type="number" step="0.01" id="cfgterminal_ownerRiskPct" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="1.0">
+                  </div>
+                </div>
+
+                <div id="cfgterminal_ownerModeNote" class="text-[11px] p-2.5 rounded-lg bg-cardBg border border-cardBorder text-slate-300 leading-relaxed"></div>
+              </div>
+            </div>
+
+            <!-- TAB 2: TERMINALS & MT5 PATHS -->
+            <div id="cfgTabPanelTerminals" class="hidden space-y-3">
+              <!-- Terminal 1 Card -->
+              <div class="bg-darkBg/60 border border-indigo-500/30 rounded-xl p-3 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    Terminal 1 (provider_a - #100001)
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">terminal64.exe</span>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">MT5 Executable Path</label>
+                  <input type="text" id="cfgprovider_aMt5Path" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="C:\Program Files\MetaTrader 5\terminal64.exe">
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">Broker Symbol Suffix (e.g. 'm' for XAUUSDm, or blank)</label>
+                  <input type="text" id="cfgprovider_aSymbolSuffix" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="e.g. m">
+                </div>
+              </div>
+
+              <!-- Terminal 2 Card -->
+              <div class="bg-darkBg/60 border border-purple-500/30 rounded-xl p-3 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Terminal 2 (provider_b & provider_c - #100002)
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">terminal64.exe</span>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">MT5 Executable Path</label>
+                  <input type="text" id="cfgprovider_bMt5Path" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="C:\Program Files\MetaTrader 5 - provider_b\terminal64.exe">
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">Broker Symbol Suffix (e.g. 'c' or 'm' or blank)</label>
+                  <input type="text" id="cfgprovider_bSymbolSuffix" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="e.g. c">
+                </div>
+              </div>
+
+              <!-- Terminal 3 Card -->
+              <div class="bg-darkBg/60 border border-cyan-500/30 rounded-xl p-3 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    Terminal 3 (terminal_owner - #100003)
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">terminal64.exe</span>
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">MT5 Executable Path</label>
+                  <input type="text" id="cfgterminal_ownerMt5Path" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="C:\Program Files\MetaTrader 5 - terminal_owner\terminal64.exe">
+                </div>
+                <div>
+                  <label class="block text-[10px] text-slate-400 mb-1">Broker Symbol Suffix (e.g. 'm' or blank)</label>
+                  <input type="text" id="cfgterminal_ownerSymbolSuffix" class="w-full bg-cardBg border border-cardBorder rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="e.g. m">
+                </div>
+              </div>
+
+              <input type="hidden" id="cfgSymbolSuffix" value="">
+            </div>
+
+            <!-- TAB 3: ALERTS & NOTIFICATIONS -->
+            <div id="cfgTabPanelAlerts" class="hidden space-y-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Telegram Bot Token</label>
+                <input type="password" id="cfgTgToken" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="123456:ABC-DEF...">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Telegram Chat ID</label>
+                <input type="text" id="cfgTgChatId" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="123456789">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Heartbeat Ping URL (Dead Man's Switch)</label>
+                <input type="text" id="cfgHeartbeatPingUrl" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="https://hc-ping.com/your-uuid">
+                <p class="text-[10px] text-slate-400 mt-1">Sends periodic heartbeat pings every 45s. Alerts you via Healthchecks.io if AutoTrader crashes or loses internet.</p>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Ntfy Topic URL</label>
+                <input type="text" id="cfgNtfyTopic" class="w-full bg-darkBg border border-cardBorder rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="https://ntfy.sh/your_topic">
+                <p class="text-[10px] text-slate-400 mt-1">Used if you run in "ntfy Stream (Prod)" trigger mode.</p>
+              </div>
+            </div>
+
+            <!-- SAVE BUTTON -->
+            <div class="pt-2 space-y-2">
+              <div id="saveConfigAlert" class="hidden p-2.5 rounded-lg text-xs font-semibold text-center transition"></div>
+              <button type="button" id="saveConfigBtn" onclick="saveConfiguration(event)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span id="saveConfigBtnText">Save Configuration (.env)</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SHADCN DIALOG: CONFIRM CLEAR JOURNAL -->
+  <div id="clearModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-full bg-red-950/60 border border-red-800/50 flex items-center justify-center text-red-400 flex-shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-base font-semibold text-zinc-100">Clear Trading Journal?</h3>
+          <p class="text-xs text-zinc-400 leading-relaxed">
+            This will permanently delete all recorded trades and raw events from <code class="px-1 py-0.5 rounded bg-zinc-800 text-zinc-200 font-mono">trades_journal.csv</code>. This action cannot be undone.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button onclick="closeClearModal()" class="px-3.5 py-1.5 text-xs font-medium rounded-md border border-zinc-800 text-zinc-300 hover:bg-zinc-800 transition cursor-pointer">
+          Cancel
+        </button>
+        <button id="confirmClearBtn" onclick="executeClearJournal()" class="px-3.5 py-1.5 text-xs font-medium rounded-md bg-red-600 hover:bg-red-700 text-white shadow-sm transition cursor-pointer inline-flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Yes, Clear Journal</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Initialize icons
+    lucide.createIcons();
+
+    let botIsRunning = false;
+    let currentTriggerMode = "polling";
+    let currentActiveTrader = "all";
+
+    async function setActiveTrader(trader) {
+      try {
+        const res = await fetch('/api/bot/trader', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trader })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          currentActiveTrader = data.active_trader || trader;
+          updateTraderUI(currentActiveTrader);
+          updateBotStatusUI(botIsRunning);
+        } else {
+          alert(`Failed to set trader: ${data.detail || data.message}`);
+        }
+      } catch (err) {
+        alert(`Error setting trader: ${err}`);
+      }
+    }
+
+    function updateTraderUI(trader) {
+      const provider_aBtn = document.getElementById('traderprovider_aBtn');
+      const provider_bBtn = document.getElementById('traderprovider_bBtn');
+      const provider_cBtn = document.getElementById('traderprovider_cBtn');
+      const provider_dBtn = document.getElementById('traderprovider_dBtn');
+      const allBtn = document.getElementById('traderAllBtn');
+      const cardprovider_a = document.getElementById('cardprovider_a');
+      const cardprovider_b = document.getElementById('cardprovider_b');
+
+      const inactiveBtn = "px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer";
+      const activeBtn = "px-2.5 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 bg-brand-600 text-white cursor-pointer shadow-sm";
+
+      if (provider_aBtn) provider_aBtn.className = (trader === 'provider_a') ? activeBtn : inactiveBtn;
+      if (provider_bBtn) provider_bBtn.className = (trader === 'provider_b') ? activeBtn : inactiveBtn;
+      if (provider_cBtn) provider_cBtn.className = (trader === 'provider_c') ? activeBtn : inactiveBtn;
+      if (provider_dBtn) provider_dBtn.className = (trader === 'provider_d') ? activeBtn : inactiveBtn;
+      if (allBtn) allBtn.className = (trader === 'all') ? activeBtn : inactiveBtn;
+
+      if (cardprovider_a) {
+        if (trader === 'provider_a') {
+          cardprovider_a.classList.remove('opacity-50');
+          cardprovider_a.classList.add('ring-2', 'ring-indigo-500/70');
+        } else if (trader === 'all') {
+          cardprovider_a.classList.remove('opacity-50', 'ring-2', 'ring-indigo-500/70');
+        } else {
+          cardprovider_a.classList.add('opacity-50');
+          cardprovider_a.classList.remove('ring-2', 'ring-indigo-500/70');
+        }
+      }
+
+      if (cardprovider_b) {
+        if (trader === 'provider_b') {
+          cardprovider_b.classList.remove('opacity-50');
+          cardprovider_b.classList.add('ring-2', 'ring-purple-500/70');
+          cardprovider_b.classList.remove('ring-emerald-500/70');
+        } else if (trader === 'provider_c') {
+          cardprovider_b.classList.remove('opacity-50');
+          cardprovider_b.classList.add('ring-2', 'ring-emerald-500/70');
+          cardprovider_b.classList.remove('ring-purple-500/70');
+        } else if (trader === 'all') {
+          cardprovider_b.classList.remove('opacity-50', 'ring-2', 'ring-purple-500/70', 'ring-emerald-500/70');
+        } else {
+          cardprovider_b.classList.add('opacity-50');
+          cardprovider_b.classList.remove('ring-2', 'ring-purple-500/70', 'ring-emerald-500/70');
+        }
+      }
+    }
+
+    function setSampleSignal(type) {
+      const box = document.getElementById('simulateText');
+      const chan = document.getElementById('simChannel');
+      if (type === 1) {
+        if (chan) chan.value = "channel-b";
+        box.value = "@provider_b @Forex Alert\nBUY XAUUSD CMP 4526.5\n\nSL : 4520.0 (-65 pips)";
+      }
+      if (type === 2) {
+        if (chan) chan.value = "channel-a";
+        box.value = "BUY XAUUSD CMP 4625.9";
+      }
+      if (type === 3) {
+        if (chan) chan.value = "channel-a";
+        box.value = "XAUUSD SL moved to Breakeven (4581.2)";
+      }
+      if (type === 4) {
+        if (chan) chan.value = "channel-a";
+        box.value = "XAUUSD Trade Closed (4482.8)\nResult: +103 pips (1.9R)";
+      }
+      if (type === 7) {
+        if (chan) chan.value = "channel-a";
+        box.value = "XAUUSD Take TP 1 here at 4533.2 (+67 pips (1R))";
+      }
+      if (type === 5) {
+        if (chan) chan.value = "channel-b";
+        box.value = "PLACE XAUUSD BUY LIMIT\n\nEntry : 4470.1 | 4463.5\nSL : 4457.1 (-130 pips)\n\nManage Risk";
+      }
+      if (type === 6) {
+        if (chan) chan.value = "channel-b";
+        box.value = "XAUUSD Pending Order Removed\nOrder cancelled before execution";
+      }
+      if (type === 8) {
+        if (chan) chan.value = "channel-c";
+        box.value = "BUY GOLD NOW 2640 - 2637\nSL: 2634\nTP1: 2643\nTP2: 2646";
+      }
+      if (type === 9) {
+        if (chan) chan.value = "channel-b";
+        box.value = "XAUUSD Shift SL to 4351.0 (-224 pips)";
+      }
+      if (type === 10) {
+        if (chan) chan.value = "channel-b";
+        box.value = "XAUUSD Shift TP to 4444.0";
+      }
+      if (type === 11) {
+        if (chan) chan.value = "channel-a";
+        box.value = "XAUUSD Breakeven set at 4390.0";
+      }
+      if (type === 12) {
+        if (chan) chan.value = "provider_d";
+        box.value = "BUY CMP 4150 SL 4142.7";
+      }
+      if (type === 13) {
+        if (chan) chan.value = "provider_d";
+        box.value = "SL BE fast @everyone";
+      }
+      if (type === 14) {
+        if (chan) chan.value = "provider_d";
+        box.value = "Close in 10 pips loss @everyone";
+      }
+    }
+
+    async function launchTerminal(which) {
+      const btnMap = {
+        'provider_a': document.getElementById('btnLaunchprovider_aText'),
+        'provider_b': document.getElementById('btnLaunchprovider_bText'),
+        'all': null
+      };
+      if (btnMap[which]) btnMap[which].innerText = 'Launching...';
+      try {
+        const res = await fetch('/api/terminals/launch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ terminal: which })
+        });
+        const data = await res.json();
+        if (data.launched && data.launched.length > 0) {
+          alert(`Terminal launch initiated:\n${data.launched.join('\n')}`);
+        } else if (data.errors && data.errors.length > 0) {
+          alert(`Launch warning / error:\n${data.errors.join('\n')}`);
+        } else {
+          alert(data.message || 'Terminals are already running.');
+        }
+        await fetchStatus();
+      } catch (err) {
+        alert(`Launch error: ${err}`);
+      }
+    }
+
+    async function setTriggerMode(mode) {
+      try {
+        const res = await fetch('/api/bot/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          currentTriggerMode = mode;
+          updateModeUI(mode);
+        } else {
+          alert(`Failed to switch mode: ${data.detail}`);
+        }
+      } catch (err) {
+        alert(`Error: ${err}`);
+      }
+    }
+
+    function updateModeUI(mode) {
+      const pollBtn = document.getElementById('modePollingBtn');
+      const ntfyBtn = document.getElementById('modeNtfyBtn');
+      const banner = document.getElementById('pollingBanner');
+
+      if (mode === 'polling') {
+        pollBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 bg-brand-600 text-white cursor-pointer shadow-sm';
+        ntfyBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer';
+        banner.classList.remove('hidden');
+      } else {
+        ntfyBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 bg-brand-600 text-white cursor-pointer shadow-sm';
+        pollBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 cursor-pointer';
+        banner.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    // Fetch live system status
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        botIsRunning = data.bot_running;
+        currentTriggerMode = data.trigger_mode || 'polling';
+
+        if (data.instance && data.instance.port) {
+          const instEl = document.getElementById('instanceBadge');
+          if (instEl) instEl.innerText = `Port ${data.instance.port}`;
+        }
+        if (data.target_terminal) {
+          const targetSel = document.getElementById('targetTerminalSelect');
+          if (targetSel && document.activeElement !== targetSel) {
+            targetSel.value = data.target_terminal;
+          }
+        }
+        if (data.active_trader) {
+          currentActiveTrader = data.active_trader;
+          updateTraderUI(currentActiveTrader);
+        }
+        updateModeUI(currentTriggerMode);
+        updateBotStatusUI(botIsRunning);
+
+        // Terminals Status & Details
+        const terminals = data.mt5 && data.mt5.terminals ? data.mt5.terminals : null;
+        const provider_aData = terminals ? terminals.provider_a : null;
+        const provider_bData = terminals ? terminals.provider_b : null;
+        const terminal_ownerData = terminals ? terminals.terminal_owner : null;
+
+        // terminal_owner Terminal UI
+        const terminal_ownerInd = document.getElementById('terminal_ownerIndicator');
+        const btnLaunchterminal_owner = document.getElementById('btnLaunchterminal_ownerText');
+        if (terminal_ownerData && terminal_ownerData.running) {
+          if (terminal_ownerInd) terminal_ownerInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 font-medium">Running</span>';
+          const lEl = document.getElementById('terminal_ownerLoginDisplay');
+          if (lEl) lEl.innerText = terminal_ownerData.login ? `#${terminal_ownerData.login}` : 'Running';
+          const sEl = document.getElementById('terminal_ownerServerDisplay');
+          if (sEl) sEl.innerText = terminal_ownerData.server ? `${terminal_ownerData.server}` : 'Connected';
+          const eEl = document.getElementById('terminal_ownerEquityDisplay');
+          if (eEl) eEl.innerText = `$${(terminal_ownerData.equity || 0).toFixed(2)}`;
+          const bEl = document.getElementById('terminal_ownerBalanceDisplay');
+          if (bEl) bEl.innerText = `$${(terminal_ownerData.balance || 0).toFixed(2)}`;
+          if (btnLaunchterminal_owner) btnLaunchterminal_owner.innerText = 'Terminal 3 Running';
+        } else {
+          if (terminal_ownerInd) terminal_ownerInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-400 font-medium">Stopped</span>';
+          const lEl = document.getElementById('terminal_ownerLoginDisplay');
+          if (lEl) lEl.innerText = '--';
+          const sEl = document.getElementById('terminal_ownerServerDisplay');
+          if (sEl) sEl.innerText = 'Not running';
+          const eEl = document.getElementById('terminal_ownerEquityDisplay');
+          if (eEl) eEl.innerText = '$0.00';
+          const bEl = document.getElementById('terminal_ownerBalanceDisplay');
+          if (bEl) bEl.innerText = '$0.00';
+          if (btnLaunchterminal_owner) btnLaunchterminal_owner.innerText = 'Launch MT5 (terminal_owner)';
+        }
+
+        // provider_a Terminal UI
+        const provider_aInd = document.getElementById('provider_aIndicator');
+        const btnLaunchprovider_a = document.getElementById('btnLaunchprovider_aText');
+        if (provider_aData && provider_aData.running) {
+          provider_aInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 font-medium">Running</span>';
+          document.getElementById('provider_aLoginDisplay').innerText = provider_aData.login ? `#${provider_aData.login}` : 'Running';
+          document.getElementById('provider_aServerDisplay').innerText = provider_aData.server ? `${provider_aData.server}` : 'Connected';
+          document.getElementById('provider_aEquityDisplay').innerText = `$${(provider_aData.equity || 0).toFixed(2)}`;
+          document.getElementById('provider_aBalanceDisplay').innerText = `$${(provider_aData.balance || 0).toFixed(2)}`;
+          if (btnLaunchprovider_a) btnLaunchprovider_a.innerText = 'Terminal 1 Running';
+        } else {
+          provider_aInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-400 font-medium">Stopped</span>';
+          document.getElementById('provider_aLoginDisplay').innerText = '--';
+          document.getElementById('provider_aServerDisplay').innerText = 'Not running';
+          document.getElementById('provider_aEquityDisplay').innerText = '$0.00';
+          document.getElementById('provider_aBalanceDisplay').innerText = '$0.00';
+          if (btnLaunchprovider_a) btnLaunchprovider_a.innerText = 'Launch MT5 (provider_a)';
+        }
+
+        // provider_b Terminal UI
+        const provider_bInd = document.getElementById('provider_bIndicator');
+        const btnLaunchprovider_b = document.getElementById('btnLaunchprovider_bText');
+        if (provider_bData && provider_bData.running) {
+          provider_bInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 font-medium">Running</span>';
+          document.getElementById('provider_bLoginDisplay').innerText = provider_bData.login ? `#${provider_bData.login}` : 'Running';
+          document.getElementById('provider_bServerDisplay').innerText = provider_bData.server ? `${provider_bData.server}` : 'Connected';
+          document.getElementById('provider_bEquityDisplay').innerText = `$${(provider_bData.equity || 0).toFixed(2)}`;
+          document.getElementById('provider_bBalanceDisplay').innerText = `$${(provider_bData.balance || 0).toFixed(2)}`;
+          if (btnLaunchprovider_b) btnLaunchprovider_b.innerText = 'Terminal 2 Running';
+        } else {
+          provider_bInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-rose-400 font-medium">Stopped</span>';
+          document.getElementById('provider_bLoginDisplay').innerText = '--';
+          document.getElementById('provider_bServerDisplay').innerText = 'Not running';
+          document.getElementById('provider_bEquityDisplay').innerText = '$0.00';
+          document.getElementById('provider_bBalanceDisplay').innerText = '$0.00';
+          if (btnLaunchprovider_b) btnLaunchprovider_b.innerText = 'Launch MT5 (provider_b)';
+        }
+
+        // Combined Portfolio Equity & Floating PnL
+        const hEq = (provider_aData && provider_aData.equity) ? provider_aData.equity : 0;
+        const mEq = (provider_bData && provider_bData.equity) ? provider_bData.equity : 0;
+        const rEq = (terminal_ownerData && terminal_ownerData.equity) ? terminal_ownerData.equity : 0;
+        const totalEq = hEq + mEq + rEq;
+        document.getElementById('totalEquityDisplay').innerText = `$${totalEq.toFixed(2)}`;
+
+        const hProf = (provider_aData && provider_aData.profit) ? provider_aData.profit : 0;
+        const mProf = (provider_bData && provider_bData.profit) ? provider_bData.profit : 0;
+        const rProf = (terminal_ownerData && terminal_ownerData.profit) ? terminal_ownerData.profit : 0;
+        const totalProfit = hProf + mProf + rProf;
+        const pnlEl = document.getElementById('floatingPnlDisplay');
+        pnlEl.innerText = `${totalProfit >= 0 ? '+' : ''}$${totalProfit.toFixed(2)}`;
+        pnlEl.className = `text-xl font-bold mb-1 ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+        // CDP
+        const cdpInd = document.getElementById('cdpIndicator');
+        const cdpInfo = document.getElementById('cdpTabsInfo');
+        if (data.cdp && data.cdp.connected) {
+          cdpInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-400 font-medium">Port 9222 Ready</span>';
+          cdpInfo.innerText = `${data.cdp.discord_tabs.length} Discord tabs open`;
+        } else {
+          cdpInd.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="text-amber-400 font-medium">Browser Offline</span>';
+          cdpInfo.innerText = 'Launch Brave/Edge with port 9222';
+        }
+
+        // Chrome Extension
+        const extDot = document.getElementById('extStatusDot');
+        const extText = document.getElementById('extStatusText');
+        if (extDot && extText) {
+          if (data.extension && data.extension.connected) {
+            extDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+            const chan = data.extension.channel ? ` (#${data.extension.channel})` : '';
+            extText.innerHTML = `<span class="text-emerald-300 font-medium">Extension Active${chan}</span>`;
+          } else {
+            extDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+            extText.innerHTML = '<span class="text-slate-400">Extension Offline</span>';
+          }
+        }
+
+        // Armed Breakeven Triggers
+        const activeTriggers = data.active_triggers || [];
+        const trigCard = document.getElementById('activeTriggersCard');
+        const trigCount = document.getElementById('activeTriggersCount');
+        const trigList = document.getElementById('activeTriggersList');
+        if (trigCard && trigList && trigCount) {
+          if (activeTriggers.length > 0) {
+            trigCard.classList.remove('hidden');
+            trigCount.innerText = `${activeTriggers.length} Active`;
+            trigList.innerHTML = activeTriggers.map(t => {
+              const dir = t.is_buy ? '≥' : '≤';
+              return `<div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-lg border border-cyan-900/50 text-[11px] font-mono">
+                <div class="flex items-center space-x-2.5">
+                  <span class="font-bold text-white">${t.symbol}</span>
+                  <span class="text-cyan-400">Trigger: ${dir} ${t.trigger_price}</span>
+                  <span class="text-slate-400 text-[10px]">Tickets: [${(t.tickets || []).join(', ')}]</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-emerald-400 font-semibold">Move SL to BE (${t.be_price})</span>
+                  <span class="text-slate-500 text-[10px]">${t.armed_at || ''}</span>
+                </div>
+              </div>`;
+            }).join('');
+          } else {
+            trigCard.classList.add('hidden');
+          }
+        }
+
+      } catch (err) {
+        console.error('Status fetch error:', err);
+      }
+    }
+
+    function updateBotStatusUI(running) {
+      const badge = document.getElementById('botStatusBadge');
+      const btn = document.getElementById('toggleBotBtn');
+
+      let traderLabel = "All Traders";
+      let channelLabel = "ALL CHANNELS";
+      if (currentActiveTrader === 'provider_a') {
+        traderLabel = "provider_a";
+        channelLabel = "#CHANNEL-A";
+      } else if (currentActiveTrader === 'provider_b') {
+        traderLabel = "provider_b";
+        channelLabel = "#CHANNEL-B";
+      } else if (currentActiveTrader === 'provider_c') {
+        traderLabel = "provider_c";
+        channelLabel = "#CHANNEL-C";
+      } else if (currentActiveTrader === 'provider_d') {
+        traderLabel = "provider_d";
+        channelLabel = "#🦅-PROVIDER_D";
+      }
+
+      if (running) {
+        badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-800 animate-pulse';
+        const statusText = currentTriggerMode === 'polling' 
+          ? `POLLING ${channelLabel}` 
+          : `LISTENING (${channelLabel})`;
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>${statusText}</span>`;
+        btn.className = 'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md bg-rose-600 hover:bg-rose-500 text-white cursor-pointer';
+        btn.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span>Stop ${traderLabel} Bot</span>`;
+      } else {
+        badge.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>STOPPED</span>';
+        btn.className = 'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-md bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer';
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span>Start ${traderLabel} Bot</span>`;
+      }
+      lucide.createIcons();
+    }
+
+    async function setTargetTerminal(target) {
+      try {
+        const res = await fetch('/api/bot/terminal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: target })
+        });
+        const d = await res.json();
+        if (d.success) {
+          await fetchStatus();
+          await fetchPositions();
+        } else {
+          alert(d.message || 'Failed to switch target MT5 terminal');
+        }
+      } catch (err) {
+        console.error('Error changing target terminal:', err);
+      }
+    }
+
+    async function toggleBot() {
+      try {
+        const endpoint = botIsRunning ? '/api/bot/stop' : '/api/bot/start';
+        const options = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        };
+        if (!botIsRunning) {
+          options.body = JSON.stringify({ trader: currentActiveTrader });
+        }
+        const res = await fetch(endpoint, options);
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Error: ${data.detail || data.message}`);
+        }
+        await fetchStatus();
+      } catch (err) {
+        alert(`Failed: ${err}`);
+      }
+    }
+
+    async function triggerMockScrape(channel) {
+      try {
+        const res = await fetch('/api/test/mock-trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`[#${channel}] Triggered successfully!\nResult: ${data.execution_result}`);
+          fetchPositions();
+        } else {
+          alert(`Scrape failed: ${data.detail}`);
+        }
+      } catch (err) {
+        alert(`Error: ${err}`);
+      }
+    }
+
+    // Fetch open positions
+    async function fetchPositions() {
+      try {
+        const res = await fetch('/api/positions');
+        const positions = await res.json();
+
+        document.getElementById('openCountDisplay').innerText = `${positions.length} active position${positions.length === 1 ? '' : 's'}`;
+        document.getElementById('positionBadge').innerText = `${positions.length} Open`;
+
+        const tbody = document.getElementById('positionsTableBody');
+        if (!positions || positions.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-slate-500 italic">No open positions or pending orders found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = positions.map(pos => {
+          const isPending = pos.is_pending;
+          const isAdopted = !!pos.is_adopted;
+          const channelName = pos.adopted_channel || '';
+          let channelLabel = '';
+          if (channelName) {
+            if (channelName.includes('channel-a') || channelName.includes('provider_a')) channelLabel = 'provider_a';
+            else if (channelName.includes('channel-b') || channelName.includes('provider_b')) channelLabel = 'provider_b';
+            else if (channelName.includes('provider_c')) channelLabel = 'provider_c';
+            else if (channelName.includes('provider_d')) channelLabel = 'provider_d';
+            else if (channelName.includes('terminal_owner')) channelLabel = 'terminal_owner';
+            else channelLabel = channelName;
+          }
+
+          const badgeClass = isPending 
+            ? 'bg-amber-950/80 text-amber-300 border border-amber-800' 
+            : (pos.type === 'BUY' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800');
+          const profitDisplay = isPending 
+            ? '<span class="text-amber-400/70 font-semibold text-[10px] tracking-wider uppercase">Pending</span>' 
+            : `<span class="font-mono font-semibold ${pos.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${pos.profit >= 0 ? '+' : ''}$${pos.profit.toFixed(2)}</span>`;
+          const actionBtn = isPending
+            ? `<button onclick="closeTrade(${pos.ticket})" class="px-2.5 py-1 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded text-[11px] font-medium transition cursor-pointer">Cancel</button>`
+            : `<button onclick="closeTrade(${pos.ticket})" class="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded text-[11px] font-medium transition cursor-pointer">Close</button>`;
+
+          const markCurrentBtn = isAdopted
+            ? `<button onclick="unadoptTrade(${pos.ticket})" title="Release / Unmanage this trade" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-cyan-300 border border-cyan-800/60 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1"><span>Unlink</span></button>`
+            : `<button onclick="openAdoptModal(${pos.ticket}, '${pos.symbol}', '${pos.type}', ${pos.price_open}, '${pos.provider || ''}')" title="Mark this trade as current signal to receive BE/SL/Close updates" class="px-2 py-1 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 rounded text-[11px] font-medium transition cursor-pointer flex items-center gap-1 shadow-sm"><span>🎯 Mark Current</span></button>`;
+
+          const isprovider_b = (pos.provider || '').toLowerCase().includes('provider_b');
+          const acctBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isprovider_b ? 'bg-purple-950/80 text-purple-300 border border-purple-800/70' : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/70'}">${pos.account || pos.provider || 'provider_a'}</span>`;
+          const adoptedBadge = isAdopted 
+            ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" title="Actively managed for ${channelName || 'Discord'}">Adopted${channelLabel ? ' (' + channelLabel + ')' : ''}</span>` 
+            : '';
+
+          return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-2.5 px-3 font-mono text-slate-400">#${pos.ticket}${adoptedBadge}</td>
+            <td class="py-2.5 px-3">${acctBadge}</td>
+            <td class="py-2.5 px-3 font-bold text-white">${pos.symbol}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">
+                ${pos.type}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 font-mono">${pos.volume}</td>
+            <td class="py-2.5 px-3 font-mono">${pos.price_open}</td>
+            <td class="py-2.5 px-3 font-mono text-slate-200">${pos.price_current || '-'}</td>
+            <td class="py-2.5 px-3 font-mono text-slate-400">${pos.sl || '-'} / ${pos.tp || '-'}</td>
+            <td class="py-2.5 px-3">
+              ${profitDisplay}
+            </td>
+            <td class="py-2.5 px-3 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                ${markCurrentBtn}
+                ${actionBtn}
+              </div>
+            </td>
+          </tr>
+        `;
+        }).join('');
+
+      } catch (err) {
+        console.error('Positions fetch error:', err);
+      }
+    }
+
+    async function closeTrade(ticket) {
+      if (!confirm(`Are you sure you want to close position #${ticket}?`)) return;
+      try {
+        const res = await fetch(`/api/positions/close/${ticket}`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) alert(`Close failed: ${data.detail}`);
+        await fetchPositions();
+      } catch (err) {
+        alert(`Error closing trade: ${err}`);
+      }
+    }
+
+    async function reconcileTrades() {
+      const btn = document.getElementById('btnReconcileTrades');
+      const btnText = document.getElementById('btnReconcileText');
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = 'Scanning...';
+      try {
+        const res = await fetch('/api/trades/reconcile', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (btnText) btnText.textContent = data.adopted_count > 0 ? `✓ Adopted ${data.adopted_count}` : '✓ Synced';
+          await fetchPositions();
+          await fetchHistory();
+        } else {
+          if (btnText) btnText.textContent = 'Scan Failed';
+        }
+      } catch (err) {
+        if (btnText) btnText.textContent = 'Scan Error';
+      } finally {
+        setTimeout(() => {
+          if (btnText) btnText.textContent = 'Reconcile / Adopt';
+          if (btn) btn.disabled = false;
+          if (window.lucide) lucide.createIcons();
+        }, 3000);
+      }
+    }
+
+    let currentAdoptTicket = null;
+    let currentAdoptSymbol = null;
+
+    function openAdoptModal(ticket, symbol, type, price, provider) {
+      currentAdoptTicket = ticket;
+      currentAdoptSymbol = symbol;
+      document.getElementById('adoptModalTicket').textContent = `#${ticket}`;
+      document.getElementById('adoptModalTrade').textContent = `${type} ${symbol}`;
+      document.getElementById('adoptModalPrice').textContent = price;
+      
+      const select = document.getElementById('adoptChannelSelect');
+      const provLower = (provider || '').toLowerCase();
+      if (provLower.includes('provider_b')) {
+        select.value = 'channel-b';
+      } else if (provLower.includes('provider_c')) {
+        select.value = 'channel-c';
+      } else if (provLower.includes('provider_d')) {
+        select.value = 'provider_d';
+      } else if (provLower.includes('terminal_owner')) {
+        select.value = 'terminal_owner';
+      } else {
+        select.value = 'channel-a';
+      }
+      
+      const errBox = document.getElementById('adoptModalError');
+      if (errBox) errBox.classList.add('hidden');
+      document.getElementById('adoptModal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeAdoptModal() {
+      document.getElementById('adoptModal').classList.add('hidden');
+      currentAdoptTicket = null;
+      currentAdoptSymbol = null;
+    }
+
+    async function confirmAdopt() {
+      if (!currentAdoptTicket) return;
+      const channel = document.getElementById('adoptChannelSelect').value;
+      const btn = document.getElementById('btnConfirmAdopt');
+      const errBox = document.getElementById('adoptModalError');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/trades/adopt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticket: currentAdoptTicket,
+            channel: channel,
+            symbol: currentAdoptSymbol
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          closeAdoptModal();
+          await fetchPositions();
+          await fetchHistory();
+        } else {
+          const msg = data.detail || data.message || 'Failed to adopt trade';
+          if (errBox) {
+            errBox.textContent = `❌ ${msg}`;
+            errBox.classList.remove('hidden');
+          } else {
+            alert(`Error: ${msg}`);
+          }
+        }
+      } catch (err) {
+        if (errBox) {
+          errBox.textContent = `❌ Error: ${err.message || err}`;
+          errBox.classList.remove('hidden');
+        } else {
+          alert(`Error: ${err}`);
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function unadoptTrade(ticket) {
+      if (!confirm(`Are you sure you want to unlink trade #${ticket}? The bot will stop managing this trade.`)) return;
+      try {
+        const res = await fetch(`/api/trades/unadopt/${ticket}`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) alert(`Unlink failed: ${data.detail || data.message}`);
+        await fetchPositions();
+        await fetchHistory();
+      } catch (err) {
+        alert(`Error unlinking trade: ${err}`);
+      }
+    }
+
+    function normalizeTrades(rawData) {
+      if (!Array.isArray(rawData) || rawData.length === 0) return [];
+      
+      // If already aggregated by the backend (has 'signal' or 'entry_price')
+      if (rawData[0].signal !== undefined && rawData[0].status !== undefined) {
+        return rawData;
+      }
+      
+      // Fallback: Aggregate raw CSV events right in the browser
+      const tradesByTicket = {};
+      rawData.forEach(row => {
+        const event = row.EventType || row.event_type || '';
+        const ticket = row.Ticket || row.ticket || '';
+        if (!ticket || String(row.Symbol || '').includes('MagicMock') || String(row.Profit || '').includes('MagicMock')) return;
+        if (event === 'TEST') return;
+
+        if (event === 'OPEN' || event === 'ADOPT') {
+          const actionRaw = (row.Action || '').toUpperCase();
+          const signal = actionRaw === 'BUY' ? 'Long' : (actionRaw === 'SELL' ? 'Short' : actionRaw);
+          const notes = row.Notes || '';
+          let slVal = null;
+          let tpVal = null;
+          const slM = notes.match(/SL[:\s]+([0-9.]+)/i);
+          const tpM = notes.match(/TP[:\s]+([0-9.]+)/i);
+          if (slM) slVal = parseFloat(slM[1]);
+          if (tpM) tpVal = parseFloat(tpM[1]);
+
+          const entryPrice = parseFloat(row.Price || 0) || 0.0;
+          const volume = parseFloat(row.Volume || 0) || 0.0;
+
+          tradesByTicket[ticket] = {
+            ticket: ticket,
+            symbol: row.Symbol || '',
+            signal: signal,
+            lot_size: volume,
+            entry_price: entryPrice,
+            tp: tpVal,
+            sl: slVal,
+            status: 'Running',
+            pnl: null,
+            close_price: null,
+            provider: row.Provider || 'System',
+            open_time: row.Timestamp || '',
+            close_time: null,
+            events: [{
+              time: row.Timestamp || '',
+              type: 'OPEN',
+              detail: `Opened ${signal} ${row.Symbol || ''} @ ${entryPrice}`,
+              notes: notes
+            }]
+          };
+        } else if (tradesByTicket[ticket]) {
+          const trade = tradesByTicket[ticket];
+          const evtTime = row.Timestamp || '';
+          const notes = row.Notes || '';
+
+          if (event && event.startsWith('CLOSE')) {
+            const pnl = parseFloat(row.Profit || 0) || 0.0;
+            const closePrice = parseFloat(row.Price || 0) || 0.0;
+            trade.status = 'Closed';
+            trade.pnl = pnl;
+            trade.close_price = closePrice;
+            trade.close_time = evtTime;
+            trade.events.push({
+              time: evtTime,
+              type: 'CLOSE',
+              detail: `Closed @ ${closePrice} | PnL: $${pnl.toFixed(2)}`,
+              notes: notes
+            });
+          } else if (event === 'UPDATE_SL') {
+            const newSl = parseFloat(row.Price || 0) || 0.0;
+            trade.sl = newSl;
+            trade.events.push({
+              time: evtTime,
+              type: 'SL_UPDATE',
+              detail: `SL moved to ${newSl}`,
+              notes: notes
+            });
+          } else if (event === 'UPDATE_TP') {
+            const newTp = parseFloat(row.Price || 0) || 0.0;
+            trade.tp = newTp !== 0.0 ? newTp : null;
+            trade.events.push({
+              time: evtTime,
+              type: 'TP_UPDATE',
+              detail: newTp !== 0.0 ? `TP moved to ${newTp}` : 'TP removed (open)',
+              notes: notes
+            });
+          }
+        }
+      });
+
+      const list = Object.values(tradesByTicket);
+      list.sort((a, b) => (b.open_time || '').localeCompare(a.open_time || ''));
+      list.forEach((t, i) => t.sr_no = i + 1);
+      return list;
+    }
+
+    async function fetchHistory() {
+      try {
+        const res = await fetch('/api/history');
+        const rawData = await res.json();
+        const trades = normalizeTrades(rawData);
+        
+        const tbody = document.getElementById('journalTableBody');
+        const countBadge = document.getElementById('journalCountBadge');
+        if (countBadge) countBadge.innerText = trades.length;
+        
+        if (!trades || trades.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-zinc-500 italic">No trades recorded yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = trades.map(t => {
+          const signalClass = t.signal === 'Long' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80' : 'bg-rose-950/80 text-rose-300 border border-rose-800/80';
+          const statusClass = t.status === 'Running' ? 'text-blue-400' : 'text-zinc-400';
+          const statusIcon = t.status === 'Running' ? '⏳' : '✅';
+
+          let pnlStr = '-';
+          let pnlClass = 'text-zinc-500';
+          if (t.status === 'Closed' && t.pnl !== null && t.pnl !== undefined) {
+            const pnl = parseFloat(t.pnl);
+            pnlStr = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            pnlClass = pnl > 0 ? 'text-emerald-400 font-bold' : (pnl < 0 ? 'text-rose-400 font-bold' : 'text-zinc-400');
+          }
+
+          // Build expanded detail panel
+          const eventsHtml = (t.events || []).map(evt => {
+            let dotColor = 'bg-zinc-500';
+            if (evt.type === 'OPEN') dotColor = 'bg-emerald-400';
+            else if (evt.type === 'CLOSE') dotColor = 'bg-rose-400';
+            else if (evt.type === 'SL_UPDATE') dotColor = 'bg-amber-400';
+            else if (evt.type === 'TP_UPDATE') dotColor = 'bg-blue-400';
+            
+            return `
+              <div class="flex items-start gap-2 py-1">
+                <span class="mt-1 w-2 h-2 rounded-full ${dotColor} flex-shrink-0"></span>
+                <div class="flex-1">
+                  <span class="text-zinc-400 text-[10px] font-mono">${evt.time}</span>
+                  <span class="ml-2 text-zinc-200 text-[11px]">${escapeHtml(evt.detail)}</span>
+                  ${evt.notes ? `<span class="ml-1 text-zinc-500 text-[10px]">&mdash; ${escapeHtml(evt.notes)}</span>` : ''}
+                </div>
+              </div>`;
+          }).join('');
+
+          const rowId = `trade-detail-${t.ticket}`;
+
+          return `
+            <tr class="hover:bg-zinc-800/40 transition cursor-pointer" onclick="document.getElementById('${rowId}').classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-90')">
+              <td class="py-2.5 px-3 text-zinc-500">
+                <svg class="w-3.5 h-3.5 transition-transform duration-150 transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </td>
+              <td class="py-2.5 px-3 font-mono text-zinc-400">${t.sr_no}</td>
+              <td class="py-2.5 px-3 font-bold text-zinc-100">${t.symbol}</td>
+              <td class="py-2.5 px-3">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${signalClass}">${t.signal}</span>
+              </td>
+              <td class="py-2.5 px-3 font-mono text-zinc-300">${t.lot_size}</td>
+              <td class="py-2.5 px-3 font-mono text-zinc-100">${t.entry_price}</td>
+              <td class="py-2.5 px-3 font-mono ${t.tp ? 'text-emerald-300' : 'text-zinc-500'}">${t.tp || '-'}</td>
+              <td class="py-2.5 px-3 font-mono ${t.sl ? 'text-rose-300' : 'text-zinc-500'}">${t.sl || '-'}</td>
+              <td class="py-2.5 px-3 font-mono ${pnlClass}">${pnlStr}</td>
+              <td class="py-2.5 px-3 ${statusClass} text-[10px] font-semibold uppercase tracking-wider">${statusIcon} ${t.status}</td>
+            </tr>
+            <tr id="${rowId}" class="hidden">
+              <td colspan="10" class="p-0">
+                <div class="bg-zinc-900/90 border-t border-b border-zinc-800/80 px-6 py-3">
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-[11px]">
+                    <div>
+                      <span class="text-zinc-500 uppercase text-[9px] tracking-wider">Provider</span>
+                      <div class="text-emerald-300 font-semibold">${t.provider || 'System'}</div>
+                    </div>
+                    <div>
+                      <span class="text-zinc-500 uppercase text-[9px] tracking-wider">Opened</span>
+                      <div class="text-zinc-200 font-mono">${t.open_time || '-'}</div>
+                    </div>
+                    <div>
+                      <span class="text-zinc-500 uppercase text-[9px] tracking-wider">${t.status === 'Closed' ? 'Closed' : 'Close Price'}</span>
+                      <div class="text-zinc-200 font-mono">${t.close_time || '-'}</div>
+                    </div>
+                    <div>
+                      <span class="text-zinc-500 uppercase text-[9px] tracking-wider">Ticket</span>
+                      <div class="text-blue-400 font-mono font-bold">#${t.ticket}</div>
+                    </div>
+                  </div>
+                  <div class="text-[10px] text-zinc-400 uppercase tracking-wider mb-1.5 font-semibold">Event Timeline</div>
+                  <div class="border-l-2 border-zinc-700 pl-3 space-y-0.5">
+                    ${eventsHtml}
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Journal fetch error:', err);
+      }
+    }
+
+    let currentJournalTab = 'journal';
+    function switchJournalTab(tab) {
+      currentJournalTab = tab;
+      const btnJournal = document.getElementById('tabBtnJournal');
+      const btnEvents = document.getElementById('tabBtnEvents');
+      const contentJournal = document.getElementById('tabContentJournal');
+      const contentEvents = document.getElementById('tabContentEvents');
+
+      if (tab === 'journal') {
+        btnJournal.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition bg-zinc-800 text-zinc-100 shadow-sm cursor-pointer';
+        btnEvents.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 cursor-pointer';
+        contentJournal.classList.remove('hidden');
+        contentEvents.classList.add('hidden');
+      } else {
+        btnEvents.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition bg-zinc-800 text-zinc-100 shadow-sm cursor-pointer';
+        btnJournal.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 cursor-pointer';
+        contentEvents.classList.remove('hidden');
+        contentJournal.classList.add('hidden');
+        fetchEvents();
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function fetchEvents() {
+      try {
+        const res = await fetch('/api/events');
+        const events = await res.json();
+        
+        const badge = document.getElementById('eventsCountBadge');
+        if (badge) badge.innerText = events.length;
+
+        const tbody = document.getElementById('eventsTableBody');
+        if (!tbody) return;
+
+        if (!events || events.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-zinc-500 italic">No raw events recorded yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = events.map(row => {
+          const profitFloat = parseFloat(row.Profit || 0);
+          const isProfitValid = !isNaN(profitFloat) && row.Profit !== undefined && row.Profit !== '';
+          const profitClass = isProfitValid && profitFloat > 0 ? 'text-emerald-400 font-semibold' : (isProfitValid && profitFloat < 0 ? 'text-rose-400 font-semibold' : 'text-zinc-400');
+          const profitStr = isProfitValid && profitFloat !== 0 ? `$${profitFloat.toFixed(2)}` : '-';
+
+          let eventBadgeClass = 'text-zinc-400';
+          if (row.EventType === 'OPEN') eventBadgeClass = 'text-emerald-400 font-semibold';
+          else if (row.EventType && row.EventType.startsWith('CLOSE')) eventBadgeClass = 'text-rose-400 font-semibold';
+          else if (row.EventType && row.EventType.startsWith('UPDATE')) eventBadgeClass = 'text-amber-400 font-semibold';
+
+          const safeNotes = escapeHtml(row.Notes || '');
+          return `
+            <tr class="hover:bg-zinc-800/40 transition border-b border-zinc-800/40">
+              <td class="py-2.5 px-3 font-mono text-[10px] text-zinc-400 whitespace-nowrap">${escapeHtml(row.Timestamp || '')}</td>
+              <td class="py-2.5 px-3 font-mono text-[10px] font-semibold text-emerald-300">${escapeHtml(row.Provider || 'System')}</td>
+              <td class="py-2.5 px-3 text-[11px] ${eventBadgeClass}">${escapeHtml(row.EventType || '')}</td>
+              <td class="py-2.5 px-3 font-bold text-zinc-100">${escapeHtml(row.Symbol || '')}</td>
+              <td class="py-2.5 px-3 text-[11px] text-zinc-300">${escapeHtml(row.Action || '')}</td>
+              <td class="py-2.5 px-3 font-mono text-zinc-300">${escapeHtml(row.Price || '')}</td>
+              <td class="py-2.5 px-3 font-mono text-zinc-300">${escapeHtml(row.Volume || '')}</td>
+              <td class="py-2.5 px-3 font-mono ${profitClass}">${escapeHtml(profitStr)}</td>
+              <td class="py-2.5 px-3 text-[10px] text-zinc-400 truncate max-w-[160px]" title="${safeNotes}">${safeNotes}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Events fetch error:', err);
+      }
+    }
+
+    function openClearModal() {
+      const m = document.getElementById('clearModal');
+      if (m) m.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeClearModal() {
+      const m = document.getElementById('clearModal');
+      if (m) m.classList.add('hidden');
+    }
+
+    async function executeClearJournal() {
+      const btn = document.getElementById('confirmClearBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> Clearing...';
+      try {
+        const res = await fetch('/api/history/clear', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          closeClearModal();
+          await fetchHistory();
+          await fetchEvents();
+        } else {
+          alert(`Clear failed: ${data.detail || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert(`Error clearing journal: ${err}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Yes, Clear Journal</span>';
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    // Fetch live logs
+    let lastLogCount = 0;
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        const data = await res.json();
+        const logs = data.logs || [];
+
+        if (logs.length === 0) return;
+
+        const terminal = document.getElementById('terminalFeed');
+        terminal.innerHTML = logs.map(l => {
+          let badgeClass = 'text-slate-400';
+          if (l.level === 'INFO') badgeClass = 'text-indigo-400 font-semibold';
+          if (l.level === 'WARNING') badgeClass = 'text-amber-400 font-semibold';
+          if (l.level === 'ERROR') badgeClass = 'text-rose-400 font-semibold';
+
+          let msgHtml = escapeHtml(l.message);
+          
+          const tags = [];
+          function addTag(content) {
+            tags.push(content);
+            return `___TAG_${tags.length - 1}___`;
+          }
+
+          // 1. Actions
+          msgHtml = msgHtml.replace(/\b(BUY)\b/g, () => addTag('<span class="text-emerald-400 font-bold bg-emerald-400/10 px-1 rounded">BUY</span>'));
+          msgHtml = msgHtml.replace(/\b(SELL)\b/g, () => addTag('<span class="text-rose-400 font-bold bg-rose-400/10 px-1 rounded">SELL</span>'));
+          
+          // 2. SL / TP
+          msgHtml = msgHtml.replace(/\b(SL|Stop Loss)\b/gi, (m) => addTag(`<span class="text-rose-300 font-bold">${m}</span>`));
+          msgHtml = msgHtml.replace(/\b(TP|Take Profit)\b/gi, (m) => addTag(`<span class="text-emerald-300 font-bold">${m}</span>`));
+          
+          // 3. Status words
+          msgHtml = msgHtml.replace(/\b(Success|Trade opened|Executed|Done|Closed position|Cancelled)\b/gi, (m) => addTag(`<span class="text-emerald-400 font-bold">${m}</span>`));
+          msgHtml = msgHtml.replace(/\b(Error|Failed|Rejected|Unknown|Skipping)\b/gi, (m) => addTag(`<span class="text-rose-400 font-bold">${m}</span>`));
+          
+          // 4. Ticket numbers
+          msgHtml = msgHtml.replace(/(Ticket:\s*)(\d+)/gi, (m, p1, p2) => `${p1}` + addTag(`<span class="text-blue-400 font-bold font-mono">#${p2}</span>`));
+
+          // 5. Prices & Floats
+          msgHtml = msgHtml.replace(/\b(\d+\.\d+)\b/g, (m) => addTag(`<span class="text-indigo-300 font-mono">${m}</span>`));
+
+          // 6. Symbols
+          msgHtml = msgHtml.replace(/\b([A-Z]{4,6})\b/g, (match) => {
+              if (['ERROR', 'FAILED', 'CLOSE', 'CANCEL', 'ORDER', 'ENTRY', 'LIMIT', 'MARKET', 'UPDATE', 'TRADE', 'TICKET', 'RESULT', 'PIPS'].includes(match)) return match;
+              return addTag(`<span class="text-amber-300 font-bold">${match}</span>`);
+          });
+
+          // Restore placeholders
+          tags.forEach((tag, idx) => {
+            msgHtml = msgHtml.replace(`___TAG_${idx}___`, tag);
+          });
+
+          return `
+            <div class="leading-relaxed mb-1 border-b border-white/5 pb-1 last:border-0">
+              <span class="text-slate-500 text-[10px] mr-1">[${l.timestamp}]</span>
+              <span class="${badgeClass} mr-1">${l.level}:</span>
+              <span class="text-slate-200">${msgHtml}</span>
+            </div>
+          `;
+        }).join('');
+
+        if (logs.length !== lastLogCount) {
+          lastLogCount = logs.length;
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+      } catch (err) {
+        console.error('Logs fetch error:', err);
+      }
+    }
+
+    function clearLogs() {
+      document.getElementById('terminalFeed').innerHTML = '<div class="text-slate-500 italic">Logs cleared.</div>';
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Simulation & Sandboxing
+    async function runSimulation(execute) {
+      const text = document.getElementById('simulateText').value;
+      const channel = (document.getElementById('simChannel') && document.getElementById('simChannel').value) || 'channel-a';
+      if (!text.trim()) {
+        alert('Please paste or select a signal first.');
+        return;
+      }
+
+      const resBox = document.getElementById('simResultBox');
+      const resType = document.getElementById('simResultType');
+      const resJson = document.getElementById('simResultJson');
+      const resExec = document.getElementById('simExecResult');
+
+      try {
+        const res = await fetch('/api/test/simulate-signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, channel, execute })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Error: ${data.detail}`);
+          return;
+        }
+
+        resBox.classList.remove('hidden');
+        resType.innerText = data.parsed.type;
+        if (data.parsed.type === 'ENTRY') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800';
+        else if (data.parsed.type === 'SL_UPDATE') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800';
+        else if (data.parsed.type === 'TP_UPDATE') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-800';
+        else if (data.parsed.type === 'BREAKEVEN_TRIGGER') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800';
+        else if (data.parsed.type === 'CANCEL_PENDING') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800';
+        else if (data.parsed.type === 'CLOSE_POSITION') resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-800';
+        else resType.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400';
+
+        resJson.innerText = JSON.stringify(data.parsed, null, 2);
+        
+        if (data.executed) {
+          resExec.innerText = `Result: ${data.execution_result}`;
+          resExec.classList.remove('hidden');
+        } else {
+          resExec.classList.add('hidden');
+        }
+
+        fetchPositions();
+      } catch (err) {
+        alert(`Simulation failed: ${err}`);
+      }
+    }
+
+    // Tab & Channel switcher for Bot Configuration
+    function switchConfigTab(tabName) {
+      const tabs = ['channels', 'terminals', 'alerts'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`cfgTab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+        const panel = document.getElementById(`cfgTabPanel${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tabName) {
+          if (btn) btn.className = 'flex-1 py-1.5 px-3 rounded-lg text-white bg-brand-600 shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer';
+          if (panel) panel.classList.remove('hidden');
+        } else {
+          if (btn) btn.className = 'flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-1.5 cursor-pointer';
+          if (panel) panel.classList.add('hidden');
+        }
+      });
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function switchConfigChannel(chanName) {
+      const channels = ['provider_d', 'provider_a', 'provider_b', 'provider_c', 'terminal_owner'];
+      channels.forEach(c => {
+        const btn = document.getElementById(`cfgChan${c.charAt(0).toUpperCase() + c.slice(1)}Btn`);
+        const box = document.getElementById(`cfgChan${c.charAt(0).toUpperCase() + c.slice(1)}Box`);
+        if (c === chanName) {
+          if (btn) {
+            btn.className = (c === 'provider_d')
+              ? 'px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm cursor-pointer flex-shrink-0'
+              : 'px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-brand-600 text-white shadow-sm cursor-pointer flex-shrink-0';
+          }
+          if (box) box.classList.remove('hidden');
+        } else {
+          if (btn) btn.className = 'px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer flex-shrink-0';
+          if (box) box.classList.add('hidden');
+        }
+      });
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function updateLotModeVisibility(prefix) {
+      const cap = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+      const modeSelect = document.getElementById(`cfg${cap}LotMode`);
+      if (!modeSelect) return;
+      const mode = modeSelect.value;
+      
+      const fixedWrapper = document.getElementById(`cfg${cap}FixedLotWrapper`);
+      const riskWrapper = document.getElementById(`cfg${cap}RiskPctWrapper`);
+      const msWrapper = document.getElementById(`cfg${cap}StartingMilestoneWrapper`);
+      const noteBox = document.getElementById(`cfg${cap}ModeNote`);
+
+      if (fixedWrapper) fixedWrapper.classList.toggle('opacity-40', mode !== 'FIXED');
+      if (riskWrapper) riskWrapper.classList.toggle('opacity-40', mode !== 'RISK');
+      if (msWrapper) msWrapper.classList.toggle('opacity-40', mode !== 'MILESTONE');
+
+      if (noteBox) {
+        if (mode === 'MILESTONE') {
+          noteBox.innerHTML = '<span class="text-amber-400 font-semibold">⚡ Milestone (Compounding):</span> Dynamically computes cash risk (5% base on milestone floor + tiered boost 15%/12%/9%) and exact MT5 lot size from your Stop Loss. Milestone doubles automatically ($100 &rarr; $200 &rarr; $400...).';
+        } else if (mode === 'RISK') {
+          noteBox.innerHTML = '<span class="text-indigo-400 font-semibold">📊 Risk % Mode:</span> Risks configured % of account balance per trade, dynamically sized from SL distance.';
+        } else {
+          noteBox.innerHTML = '<span class="text-slate-300 font-semibold">🔒 Fixed Lot Mode:</span> Every trade uses the static lot volume configured above.';
+        }
+      }
+    }
+
+    // Config loading & saving
+    async function loadConfiguration() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        document.getElementById('cfgNtfyTopic').value = cfg.NTFY_TOPIC || '';
+        document.getElementById('cfgTgToken').value = cfg.TG_TOKEN || '';
+        document.getElementById('cfgTgChatId').value = cfg.TG_CHAT_ID || '';
+        if (document.getElementById('cfgHeartbeatPingUrl')) {
+          document.getElementById('cfgHeartbeatPingUrl').value = cfg.HEARTBEAT_PING_URL || '';
+        }
+        document.getElementById('cfgSymbolSuffix').value = cfg.SYMBOL_SUFFIX || '';
+        document.getElementById('cfgprovider_aSymbolSuffix').value = (cfg.PROVIDER_A_SYMBOL_SUFFIX !== undefined ? cfg.PROVIDER_A_SYMBOL_SUFFIX : cfg.SYMBOL_SUFFIX) || '';
+        document.getElementById('cfgprovider_bSymbolSuffix').value = (cfg.PROVIDER_B_SYMBOL_SUFFIX !== undefined ? cfg.PROVIDER_B_SYMBOL_SUFFIX : cfg.SYMBOL_SUFFIX) || '';
+        document.getElementById('cfgprovider_aLotMode').value = cfg.PROVIDER_A_LOT_MODE || 'FIXED';
+        document.getElementById('cfgprovider_aFixedLot').value = cfg.PROVIDER_A_FIXED_LOT || '0.01';
+        document.getElementById('cfgprovider_aRiskPct').value = cfg.PROVIDER_A_RISK_PCT || '1.0';
+        document.getElementById('cfgprovider_bLotMode').value = cfg.PROVIDER_B_LOT_MODE || 'FIXED';
+        document.getElementById('cfgprovider_bFixedLot').value = cfg.PROVIDER_B_FIXED_LOT || '0.01';
+        document.getElementById('cfgprovider_bRiskPct').value = cfg.PROVIDER_B_RISK_PCT || '1.0';
+        document.getElementById('cfgprovider_bDualSplit').value = cfg.PROVIDER_B_DUAL_ENTRY_SPLIT || '75/25';
+        document.getElementById('cfgprovider_cLotMode').value = cfg.PROVIDER_C_LOT_MODE || 'FIXED';
+        document.getElementById('cfgprovider_cFixedLot').value = cfg.PROVIDER_C_FIXED_LOT || '0.01';
+        document.getElementById('cfgprovider_cRiskPct').value = cfg.PROVIDER_C_RISK_PCT || '1.0';
+        if (document.getElementById('cfgprovider_dTargetTerminal')) {
+          document.getElementById('cfgprovider_dTargetTerminal').value = cfg.PROVIDER_D_TARGET_TERMINAL || 'terminal_1';
+        }
+        if (document.getElementById('cfgprovider_dLotMode')) {
+          document.getElementById('cfgprovider_dLotMode').value = cfg.PROVIDER_D_LOT_MODE || 'FIXED';
+        }
+        if (document.getElementById('cfgprovider_dFixedLot')) {
+          document.getElementById('cfgprovider_dFixedLot').value = cfg.PROVIDER_D_FIXED_LOT || '0.01';
+        }
+        if (document.getElementById('cfgprovider_dRiskPct')) {
+          document.getElementById('cfgprovider_dRiskPct').value = cfg.PROVIDER_D_RISK_PCT || '1.0';
+        }
+        if (document.getElementById('cfgprovider_dSymbolSuffix')) {
+          document.getElementById('cfgprovider_dSymbolSuffix').value = cfg.PROVIDER_D_SYMBOL_SUFFIX || '';
+        }
+        if (document.getElementById('cfgprovider_dStartingMilestone')) {
+          document.getElementById('cfgprovider_dStartingMilestone').value = cfg.PROVIDER_D_STARTING_MILESTONE || '100.0';
+        }
+        document.getElementById('cfgterminal_ownerLotMode').value = cfg.TERMINAL_3_LOT_MODE || cfg.TERMINAL_OWNER_LOT_MODE || 'RISK';
+        document.getElementById('cfgterminal_ownerFixedLot').value = cfg.TERMINAL_3_FIXED_LOT || cfg.TERMINAL_OWNER_FIXED_LOT || '0.01';
+        document.getElementById('cfgterminal_ownerRiskPct').value = cfg.TERMINAL_3_RISK_PCT || cfg.TERMINAL_OWNER_RISK_PCT || '1.0';
+        document.getElementById('cfgterminal_ownerSymbolSuffix').value = cfg.TERMINAL_OWNER_SYMBOL_SUFFIX || '';
+        document.getElementById('cfgprovider_aMt5Path').value = cfg.PROVIDER_A_MT5_PATH || '';
+        document.getElementById('cfgprovider_bMt5Path').value = cfg.PROVIDER_B_MT5_PATH || '';
+        document.getElementById('cfgterminal_ownerMt5Path').value = cfg.TERMINAL_OWNER_MT5_PATH || '';
+
+        updateLotModeVisibility('provider_d');
+        updateLotModeVisibility('provider_a');
+        updateLotModeVisibility('provider_b');
+        updateLotModeVisibility('provider_c');
+        updateLotModeVisibility('terminal_owner');
+      } catch (err) {
+        console.error('Config load error:', err);
+      }
+    }
+
+    async function saveConfiguration(e) {
+      if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      const btn = document.getElementById('saveConfigBtn');
+      const btnText = document.getElementById('saveConfigBtnText');
+      const alertBox = document.getElementById('saveConfigAlert');
+
+      if (btnText) btnText.textContent = 'Saving...';
+      if (btn) btn.disabled = true;
+      if (alertBox) {
+        alertBox.className = 'hidden';
+        alertBox.textContent = '';
+      }
+
+      const getVal = (id, fallback = '') => {
+        const el = document.getElementById(id);
+        return (el && el.value !== undefined) ? el.value.trim() : fallback;
+      };
+
+      const provider_aSuffix = getVal('cfgprovider_aSymbolSuffix');
+      const provider_bSuffix = getVal('cfgprovider_bSymbolSuffix');
+      const terminal_ownerSuffix = getVal('cfgterminal_ownerSymbolSuffix', 'm');
+      const provider_dSuffix = getVal('cfgprovider_dSymbolSuffix');
+
+      const payload = {
+        NTFY_TOPIC: getVal('cfgNtfyTopic'),
+        TG_TOKEN: getVal('cfgTgToken'),
+        TG_CHAT_ID: getVal('cfgTgChatId'),
+        HEARTBEAT_PING_URL: getVal('cfgHeartbeatPingUrl'),
+        SYMBOL_SUFFIX: provider_aSuffix || provider_bSuffix || getVal('cfgSymbolSuffix'),
+        PROVIDER_A_SYMBOL_SUFFIX: provider_aSuffix,
+        PROVIDER_B_SYMBOL_SUFFIX: provider_bSuffix,
+        TERMINAL_OWNER_SYMBOL_SUFFIX: terminal_ownerSuffix,
+        PROVIDER_A_LOT_MODE: getVal('cfgprovider_aLotMode', 'FIXED'),
+        PROVIDER_A_FIXED_LOT: getVal('cfgprovider_aFixedLot', '0.01'),
+        PROVIDER_A_RISK_PCT: getVal('cfgprovider_aRiskPct', '1.0'),
+        PROVIDER_B_LOT_MODE: getVal('cfgprovider_bLotMode', 'FIXED'),
+        PROVIDER_B_FIXED_LOT: getVal('cfgprovider_bFixedLot', '0.01'),
+        PROVIDER_B_RISK_PCT: getVal('cfgprovider_bRiskPct', '1.0'),
+        PROVIDER_B_DUAL_ENTRY_SPLIT: getVal('cfgprovider_bDualSplit', '75/25'),
+        PROVIDER_C_LOT_MODE: getVal('cfgprovider_cLotMode', 'FIXED'),
+        PROVIDER_C_FIXED_LOT: getVal('cfgprovider_cFixedLot', '0.01'),
+        PROVIDER_C_RISK_PCT: getVal('cfgprovider_cRiskPct', '1.0'),
+        PROVIDER_D_TARGET_TERMINAL: getVal('cfgprovider_dTargetTerminal', 'terminal_1'),
+        PROVIDER_D_LOT_MODE: getVal('cfgprovider_dLotMode', 'FIXED'),
+        PROVIDER_D_FIXED_LOT: getVal('cfgprovider_dFixedLot', '0.01'),
+        PROVIDER_D_RISK_PCT: getVal('cfgprovider_dRiskPct', '1.0'),
+        PROVIDER_D_SYMBOL_SUFFIX: provider_dSuffix,
+        PROVIDER_D_STARTING_MILESTONE: getVal('cfgprovider_dStartingMilestone', '100.0'),
+        TERMINAL_1_LOT_MODE: getVal('cfgprovider_aLotMode', 'FIXED'),
+        TERMINAL_1_FIXED_LOT: getVal('cfgprovider_aFixedLot', '0.12'),
+        TERMINAL_1_RISK_PCT: getVal('cfgprovider_aRiskPct', '1.0'),
+        TERMINAL_2_LOT_MODE: getVal('cfgprovider_bLotMode', 'FIXED'),
+        TERMINAL_2_FIXED_LOT: getVal('cfgprovider_bFixedLot', '0.01'),
+        TERMINAL_2_RISK_PCT: getVal('cfgprovider_bRiskPct', '1.0'),
+        TERMINAL_3_LOT_MODE: getVal('cfgterminal_ownerLotMode', 'RISK'),
+        TERMINAL_3_FIXED_LOT: getVal('cfgterminal_ownerFixedLot', '0.01'),
+        TERMINAL_3_RISK_PCT: getVal('cfgterminal_ownerRiskPct', '1.0'),
+        TERMINAL_OWNER_LOT_MODE: getVal('cfgterminal_ownerLotMode', 'RISK'),
+        TERMINAL_OWNER_FIXED_LOT: getVal('cfgterminal_ownerFixedLot', '0.01'),
+        TERMINAL_OWNER_RISK_PCT: getVal('cfgterminal_ownerRiskPct', '1.0'),
+        PROVIDER_A_MT5_PATH: getVal('cfgprovider_aMt5Path'),
+        PROVIDER_B_MT5_PATH: getVal('cfgprovider_bMt5Path'),
+        TERMINAL_OWNER_MT5_PATH: getVal('cfgterminal_ownerMt5Path')
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (alertBox) {
+            alertBox.className = 'p-2.5 rounded-lg text-xs font-semibold text-center bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm';
+            alertBox.textContent = '✓ Configuration saved successfully to .env and active runtime!';
+          }
+          if (btnText) btnText.textContent = '✓ Saved Successfully!';
+          setTimeout(() => {
+            if (btnText) btnText.textContent = 'Save Configuration (.env)';
+            if (alertBox) alertBox.className = 'hidden';
+          }, 4000);
+          fetchStatus();
+        } else {
+          const errMsg = data.detail || (typeof data === 'string' ? data : 'Failed to save configuration');
+          if (alertBox) {
+            alertBox.className = 'p-2.5 rounded-lg text-xs font-semibold text-center bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm';
+            alertBox.textContent = `❌ Save Failed: ${errMsg}`;
+          }
+          if (btnText) btnText.textContent = 'Save Failed';
+          setTimeout(() => {
+            if (btnText) btnText.textContent = 'Save Configuration (.env)';
+          }, 4000);
+        }
+      } catch (err) {
+        if (alertBox) {
+          alertBox.className = 'p-2.5 rounded-lg text-xs font-semibold text-center bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm';
+          alertBox.textContent = `❌ Error: ${err.message || err}`;
+        }
+        if (btnText) btnText.textContent = 'Error';
+        setTimeout(() => {
+          if (btnText) btnText.textContent = 'Save Configuration (.env)';
+        }, 4000);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (window.lucide) lucide.createIcons();
+      }
+      return false;
+    }
+
+    async function testTelegramAlert() {
+      try {
+        const res = await fetch('/api/test/telegram', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Telegram test alert sent successfully! Check your Telegram app.');
+        } else {
+          alert(`Telegram Test Failed: ${data.detail}`);
+        }
+      } catch (err) {
+        alert(`Error sending Telegram test: ${err}`);
+      }
+    }
+
+    async function testTelegramErrorAlert() {
+      try {
+        const res = await fetch('/api/test/telegram-error', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Telegram error alert sent successfully! Check your Telegram app for the 🚨 alert.');
+        } else {
+          alert(`Telegram Error Test Failed: ${data.detail}`);
+        }
+      } catch (err) {
+        alert(`Error sending test error alert: ${err}`);
+      }
+    }
+
+    // Initial Load & Intervals
+    loadConfiguration();
+    fetchStatus();
+    fetchPositions();
+    fetchLogs();
+    fetchHistory();
+    fetchEvents();
+
+    setInterval(fetchStatus, 2500);
+    setInterval(fetchPositions, 3000);
+    setInterval(fetchLogs, 1500);
+    setInterval(fetchHistory, 5000);
+    setInterval(fetchEvents, 5000);
+
+    function openExtensionGuideModal() {
+      const modal = document.getElementById('extensionGuideModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeExtensionGuideModal() {
+      const modal = document.getElementById('extensionGuideModal');
+      if (modal) modal.classList.add('hidden');
+    }
+  </script>
+
+  <!-- ADOPT / MARK CURRENT MODAL -->
+  <div id="adoptModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-cardBorder">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="target" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="text-base font-semibold text-white">Mark Trade as Current</h3>
+        </div>
+        <button onclick="closeAdoptModal()" class="text-slate-400 hover:text-white transition cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-900/70 border border-cardBorder/60 rounded-xl p-3.5 space-y-1.5 text-xs">
+        <div class="flex justify-between"><span class="text-slate-400">Ticket:</span> <span id="adoptModalTicket" class="font-mono font-bold text-white">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Symbol & Action:</span> <span id="adoptModalTrade" class="font-bold text-cyan-300">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Entry Price:</span> <span id="adoptModalPrice" class="font-mono text-slate-200">-</span></div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1.5">Assign Signal Channel / Provider</label>
+        <select id="adoptChannelSelect" class="w-full bg-slate-900 border border-cardBorder rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500">
+          <option value="channel-a">🔵 provider_a (#channel-a)</option>
+          <option value="channel-b">🟣 provider_b (#channel-b)</option>
+          <option value="channel-c">🟢 provider_c (#channel-c)</option>
+          <option value="provider_d">🦅 provider_d (#provider_d)</option>
+          <option value="terminal_owner">🔷 terminal_owner (terminal_owner)</option>
+        </select>
+        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+          Incoming signals (Move SL to BE, SL updates, TP updates, and Close) from this channel will directly manage and close this MT5 position.
+        </p>
+      </div>
+
+      <div id="adoptModalError" class="hidden text-xs text-rose-400 bg-rose-950/40 border border-rose-800/50 rounded-lg p-2.5"></div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2">
+        <button onclick="closeAdoptModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition cursor-pointer">Cancel</button>
+        <button id="btnConfirmAdopt" onclick="confirmAdopt()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5 shadow-md">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Confirm & Manage</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXTENSION GUIDE MODAL -->
+  <div id="extensionGuideModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-cardBorder pb-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="puzzle" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="text-base font-semibold text-white">Discord Chrome Extension Setup</h3>
+        </div>
+        <button onclick="closeExtensionGuideModal()" class="text-slate-400 hover:text-white cursor-pointer p-1">✕</button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <p class="font-medium text-white">Load the extension directly in Chrome or Brave in 30 seconds:</p>
+        <ol class="list-decimal list-inside space-y-2 text-slate-300">
+          <li>Open your browser and navigate to <code class="px-1.5 py-0.5 bg-slate-900 text-cyan-300 rounded font-mono text-[11px]">chrome://extensions</code></li>
+          <li>Turn <b>ON</b> <b class="text-white">Developer mode</b> using the toggle in the top right corner.</li>
+          <li>Click the <b class="text-white">Load unpacked</b> button in the top left corner.</li>
+          <li>Select the <code class="px-1.5 py-0.5 bg-slate-900 text-cyan-300 rounded font-mono text-[11px]">extension</code> folder located at:<br>
+            <div class="mt-1 p-2 bg-slate-900 border border-slate-700 rounded font-mono text-[11px] text-emerald-300 break-all select-all">C:\path\to\discord-mt5-autotrader-public\extension</div>
+          </li>
+          <li>Open Discord Web (<a href="https://discord.com/app" target="_blank" class="text-cyan-400 underline font-medium">discord.com</a>). The status indicator here will turn <b class="text-emerald-400">Active (Green)</b>!</li>
+        </ol>
+        <div class="p-3 bg-cyan-950/40 border border-cyan-800/50 rounded-xl text-cyan-200">
+          ⚡ <b>Zero Timeouts & Real-time</b>: The extension uses native DOM <code class="font-mono text-cyan-100">MutationObserver</code> inside Discord. New trade signals are relayed with near 0ms latency, completely eliminating CDP scraping, Playwright dependencies, and DevTools port timeouts.
+        </div>
+      </div>
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeExtensionGuideModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold cursor-pointer">Done</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

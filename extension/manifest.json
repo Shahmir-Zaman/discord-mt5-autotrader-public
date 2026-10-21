@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "AutoTrader Discord Connector",
+  "version": "1.1.0",
+  "description": "Zero-latency real-time Discord signal bridge for MT5 AutoTrader.",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://discord.com/*",
+    "https://*.discord.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://api.telegram.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://discord.com/*",
+        "https://*.discord.com/*"
+      ],
+      "js": [
+        "keepAlive.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://discord.com/*",
+        "https://*.discord.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AutoTrader Connector"
+  }
+}
